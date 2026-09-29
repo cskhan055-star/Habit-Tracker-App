@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+@layer base {
+  :root,
+  .theme-obsidian {
+    --bg-base: #0A0B0D;
+    --bg-surface: #15171B;
+    --bg-surface-elevated: #1C1F24;
+    --gold-primary: #C6A15B;
+    --gold-secondary: #E9CC8B;
+    --gold-gradient: linear-gradient(135deg, #C6A15B 0%, #E9CC8B 100%);
+    --gold-glow: radial-gradient(circle at center, rgba(198, 161, 91, 0.18) 0%, rgba(10, 11, 13, 0) 70%);
+    --ink-primary: #F3F0E9;
+    --ink-dim: #9C978F;
+    --hairline: #26282C;
+    --emerald-accent: #3E8471;
+  }
+
+  .theme-antique-gold {
+    --bg-base: #12100C;
+    --bg-surface: #1C1813;
+    --bg-surface-elevated: #27211A;
+    --gold-primary: #D4AF37;
+    --gold-secondary: #F3E5AB;
+    --gold-gradient: linear-gradient(135deg, #C89D42 0%, #F5DE93 100%);
+    --gold-glow: radial-gradient(circle at center, rgba(212, 175, 55, 0.22) 0%, rgba(18, 16, 12, 0) 70%);
+    --ink-primary: #F8F3E8;
+    --ink-dim: #A89C8A;
+    --hairline: #332B20;
+    --emerald-accent: #4E9B78;
+  }
+
+  .theme-ivory-marble {
+    --bg-base: #F8F6F0;
+    --bg-surface: #FFFFFF;
+    --bg-surface-elevated: #EFEBE0;
+    --gold-primary: #B28B3B;
+    --gold-secondary: #D4A853;
+    --gold-gradient: linear-gradient(135deg, #B28B3B 0%, #E0B763 100%);
+    --gold-glow: radial-gradient(circle at center, rgba(178, 139, 59, 0.16) 0%, rgba(248, 246, 240, 0) 70%);
+    --ink-primary: #1A1916;
+    --ink-dim: #756F64;
+    --hairline: #E2DDD0;
+    --emerald-accent: #2E6B5B;
+  }
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--ink-primary);
+  font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif,
+.font-display {
+  font-family: 'Fraunces', 'Lora', Georgia, serif;
+}
+
+/* Custom scrollbar for horizontal icon pickers and content */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 4px;
+}
+
+/* Gold button elevation shadow */
+.gold-btn-shadow {
+  box-shadow: 0 4px 20px -2px rgba(198, 161, 91, 0.28);
+}
+
+.gold-fab-shadow {
+  box-shadow: 0 6px 24px -2px rgba(198, 161, 91, 0.35);
+}
+
+/* Luxury theme token overrides for elements using design system classes */
+.theme-antique-gold,
+.theme-ivory-marble {
+  background-color: var(--bg-base);
+  color: var(--ink-primary);
+}
+
+.theme-antique-gold [class*="bg-[#0A0B0D]"],
+.theme-ivory-marble [class*="bg-[#0A0B0D]"] {
+  background-color: var(--bg-base) !important;
+}
+
+.theme-antique-gold [class*="bg-[#15171B]"],
+.theme-ivory-marble [class*="bg-[#15171B]"] {
+  background-color: var(--bg-surface) !important;
+}
+
+.theme-antique-gold [class*="bg-[#1C1F24]"],
+.theme-ivory-marble [class*="bg-[#1C1F24]"] {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+.theme-antique-gold [class*="text-[#F3F0E9]"],
+.theme-ivory-marble [class*="text-[#F3F0E9]"] {
+  color: var(--ink-primary) !important;
+}
+
+.theme-antique-gold [class*="text-[#9C978F]"],
+.theme-ivory-marble [class*="text-[#9C978F]"] {
+  color: var(--ink-dim) !important;
+}
+
+.theme-antique-gold [class*="border-[#26282C]"],
+.theme-ivory-marble [class*="border-[#26282C]"] {
+  border-color: var(--hairline) !important;
+}
+
+/* Subtle gold text clip */
+.text-gold-gradient {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-gold-gradient {
+  background: var(--gold-gradient) !important;
+}
+
+.border-hairline {
+  border-color: var(--hairline);
+}
+
+/* Subtle 300ms scale-pulse animation for check-in rings */
+@keyframes scale-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+  75% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scale-pulse {
+    animation: none;
+  }
+}
