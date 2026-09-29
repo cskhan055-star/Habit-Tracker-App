@@ -127,15 +127,15 @@ function AppContent() {
             {/* Android APK / Install Button */}
             <button
               onClick={() => setIsInstallModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg border border-[#E9CC8B]/40 bg-[#1C1F24] text-xs text-[#E9CC8B] hover:border-[#E9CC8B] transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg bg-gold-gradient text-[#0A0B0D] text-xs font-semibold hover:brightness-105 shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
               title="Android APK Build & Install"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>APK / Install</span>
+              <span>Build / Download APK</span>
             </button>
 
             {/* Frame toggle for desktop */}

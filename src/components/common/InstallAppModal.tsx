@@ -186,13 +186,29 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 Generate Signed Android APK (.apk / .aab)
               </h4>
               <p className="text-xs text-[#9C978F] leading-relaxed mb-3">
-                Since cloud containers cannot run the 2GB+ Android SDK and Gradle daemon directly, Microsoft&apos;s free <strong>PWABuilder</strong> compiles this app&apos;s manifest and service worker into a production-ready Android APK in under 60 seconds.
+                Cloud Web sandbox mein direct Android SDK / Gradle run nahi hota, is liye Microsoft ka official <strong>PWABuilder</strong> is app ke manifest aur service worker se direct installable <strong>.apk</strong> generate karta hai.
               </p>
 
+              {/* App URL Copy Block */}
+              <div className="mb-4 p-2.5 rounded-xl bg-[#0A0B0D] border border-[#26282C] flex items-center justify-between gap-2">
+                <span className="text-[11px] font-mono text-[#E9CC8B] truncate select-all">
+                  {currentUrl}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentUrl);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[#1C1F24] border border-[#26282C] text-[11px] text-[#F3F0E9] hover:text-[#E9CC8B] shrink-0 cursor-pointer"
+                >
+                  Copy URL
+                </button>
+              </div>
+
               <ol className="text-xs text-[#9C978F] space-y-2 mb-4 list-decimal list-inside">
-                <li>Click the button below to open PWABuilder.</li>
-                <li>Verify the manifest score (pre-configured for Aurum).</li>
-                <li>Click <strong>&quot;Package for Android&quot;</strong> to generate and download your signed <strong>.apk</strong> or <strong>.aab</strong>.</li>
+                <li>Neeche diye gaye <strong>&quot;Open PWABuilder&quot;</strong> button par click karein.</li>
+                <li>App manifest test pass karega (score 100%).</li>
+                <li><strong>&quot;Package for Android&quot;</strong> dabayein aur apna <strong>.apk</strong> download kar lein!</li>
               </ol>
 
               <a

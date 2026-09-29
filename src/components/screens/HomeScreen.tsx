@@ -125,6 +125,40 @@ export const HomeScreen: React.FC = () => {
           onClose={() => setIsInstallModalOpen(false)}
         />
 
+        {/* Quick Build / APK Download Banner */}
+        <div
+          onClick={() => setIsInstallModalOpen(true)}
+          className="mb-6 p-3.5 rounded-2xl bg-[#1C1F24] border border-[#E9CC8B]/40 hover:border-[#E9CC8B] flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] group shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gold-gradient text-[#0A0B0D] flex items-center justify-center shrink-0 font-bold shadow-xs">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[#F3F0E9] group-hover:text-[#E9CC8B] transition-colors">
+                  Build APK & Install App
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#E9CC8B]/20 text-[#E9CC8B]">
+                  Android APK
+                </span>
+              </div>
+              <p className="text-[11px] text-[#9C978F] mt-0.5">
+                Tap here to generate .apk or install on mobile
+              </p>
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-full bg-[#15171B] border border-[#26282C] flex items-center justify-center text-[#E9CC8B] shrink-0 group-hover:translate-x-0.5 transition-transform">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
+        </div>
+
         {/* Hero Streak Card */}
         <section className="relative overflow-hidden rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-7">
           <div className="flex items-start justify-between">
