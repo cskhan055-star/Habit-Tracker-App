@@ -1,0 +1,44 @@
+{
+  "@@locale": "en",
+  "appName": "Aurum",
+  "@appName": {
+    "description": "App display name"
+  },
+  "homeGreetingEvening": "Good evening",
+  "homeStreakLabel": "Overall streak",
+  "homeDays": "days",
+  "homeTodaySection": "Today",
+  "homeTodayDone": "{done} of {total} done",
+  "@homeTodayDone": {
+    "placeholders": {
+      "done": {},
+      "total": {}
+    }
+  },
+  "addHabitTitle": "New Habit",
+  "addHabitNameLabel": "Habit name",
+  "addHabitFrequencyDaily": "Daily",
+  "addHabitFrequencyWeekly": "Weekly",
+  "addHabitFrequencyCustom": "Custom",
+  "addHabitReminder": "Reminder",
+  "addHabitCreateButton": "Create Habit",
+  "detailCurrentStreak": "Current streak",
+  "detailLongestStreak": "Longest",
+  "detailConsistency": "Consistency",
+  "statsTitle": "Your Progress",
+  "statsThisWeek": "this week",
+  "statsTotalCheckins": "Total check-ins",
+  "statsActiveHabits": "Active habits",
+  "statsBestStreak": "Best streak",
+  "paywallTitle": "Unlock Aurum Gold",
+  "paywallSubtitle": "Unlimited habits, deeper insight, and a widget worthy of your home screen.",
+  "paywallMonthly": "Monthly",
+  "paywallYearly": "Yearly",
+  "paywallLifetime": "Lifetime",
+  "paywallCta": "Start 7-Day Free Trial",
+  "paywallFinePrint": "Cancel anytime. Renews automatically.",
+  "navHome": "Home",
+  "navStats": "Stats",
+  "navLog": "Log",
+  "navSettings": "Settings"
+}
