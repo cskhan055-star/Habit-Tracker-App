@@ -3,6 +3,7 @@ import { useHabit } from '../../context/HabitContext';
 import { FlameIcon, getHabitIconComponent, CrownIcon } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
 import { ThemeSelectorModal } from '../common/ThemeSelectorModal';
+import { InstallAppModal } from '../common/InstallAppModal';
 import { HABIT_CATEGORIES, getCategoryById } from '../../data/categories';
 import {
   calculateHabitStats,
@@ -28,6 +29,7 @@ export const HomeScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
   // Filter habits by name and category
   const filteredHabits = habits.filter((habit) => {
@@ -65,7 +67,7 @@ export const HomeScreen: React.FC = () => {
             </h1>
           </div>
 
-          {/* Right actions: Theme Presets + Crown */}
+          {/* Right actions: Theme Presets + Install + Crown */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsThemeModalOpen(true)}
@@ -78,6 +80,20 @@ export const HomeScreen: React.FC = () => {
                 <path d="M12 2a4.5 4.5 0 0 0 0 9 4.5 4.5 0 0 1 0 9" />
                 <circle cx="12" cy="6.5" r=".75" fill="currentColor" />
                 <circle cx="12" cy="15.5" r=".75" fill="currentColor" />
+              </svg>
+            </button>
+
+            {/* Mobile / Android Install Button */}
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="w-10 h-10 rounded-full border border-[#26282C] bg-[#15171B] flex items-center justify-center text-[#9C978F] hover:text-[#E9CC8B] hover:border-[#E9CC8B]/40 transition-colors cursor-pointer"
+              title="Install on Android (APK & WebAPK)"
+              aria-label="Install on Android"
+            >
+              <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
 
@@ -101,6 +117,12 @@ export const HomeScreen: React.FC = () => {
         <ThemeSelectorModal
           isOpen={isThemeModalOpen}
           onClose={() => setIsThemeModalOpen(false)}
+        />
+
+        {/* Android & Mobile Install Modal */}
+        <InstallAppModal
+          isOpen={isInstallModalOpen}
+          onClose={() => setIsInstallModalOpen(false)}
         />
 
         {/* Hero Streak Card */}

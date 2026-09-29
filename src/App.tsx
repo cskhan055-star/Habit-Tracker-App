@@ -15,6 +15,7 @@ import { PaywallScreen } from './components/screens/PaywallScreen';
 import { WidgetPreviewScreen } from './components/screens/WidgetPreviewScreen';
 import { AurumMark } from './components/common/Icons';
 import { THEME_PRESETS } from './data/themePresets';
+import { InstallAppModal } from './components/common/InstallAppModal';
 
 const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
   { id: 'splash', label: 'Splash', number: '01' },
@@ -29,6 +30,7 @@ const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
 function AppContent() {
   const { activeScreen, setScreen, theme, setTheme, resetToDefaults } = useHabit();
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
   const renderActiveScreen = () => {
     switch (activeScreen) {
@@ -122,6 +124,20 @@ function AppContent() {
               })}
             </div>
 
+            {/* Android APK / Install Button */}
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg border border-[#E9CC8B]/40 bg-[#1C1F24] text-xs text-[#E9CC8B] hover:border-[#E9CC8B] transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Android APK Build & Install"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>APK / Install</span>
+            </button>
+
             {/* Frame toggle for desktop */}
             <button
               onClick={() => setDeviceFrameMode(!deviceFrameMode)}
@@ -189,6 +205,12 @@ function AppContent() {
           </div>
         )}
       </main>
+
+      {/* Android & Mobile Install Modal */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
     </div>
   );
 }
