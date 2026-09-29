@@ -8,6 +8,8 @@ import {
   parseDate,
 } from '../utils/streakEngine';
 import { triggerCheckInHaptic } from '../utils/haptics';
+import { isLanguageRTL } from '../data/languages';
+import { getTranslation, TranslationKeys } from '../data/translations';
 
 interface HabitContextType {
   habits: Habit[];
@@ -19,6 +21,10 @@ interface HabitContextType {
   theme: LuxuryTheme;
   isPremium: boolean;
   user: UserAccount;
+  locale: string;
+  isRTL: boolean;
+  t: (key: keyof TranslationKeys, params?: Record<string, string | number>) => string;
+  setLocale: (code: string) => void;
   currentDate: string;
   overallStreak: number;
   todayCheckInRatio: { completed: number; total: number };
@@ -49,6 +55,7 @@ const STORAGE_KEY_REFLECTIONS = 'aurum_reflections_v1';
 const STORAGE_KEY_THEME = 'aurum_theme_v1';
 const STORAGE_KEY_PREMIUM = 'aurum_premium_v1';
 const STORAGE_KEY_USER = 'aurum_user_v1';
+const STORAGE_KEY_LOCALE = 'aurum_locale_v1';
 
 const DEFAULT_USER: UserAccount = {
   isLoggedIn: true,
@@ -61,6 +68,36 @@ const DEFAULT_USER: UserAccount = {
 };
 
 export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [locale, setLocaleState] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_LOCALE);
+      if (saved) return saved;
+    } catch {
+      // ignore
+    }
+    return 'en'; // English is primary / default
+  });
+
+  const isRTL = isLanguageRTL(locale);
+
+  const setLocale = (newLocale: string) => {
+    setLocaleState(newLocale);
+    try {
+      localStorage.setItem(STORAGE_KEY_LOCALE, newLocale);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+    document.documentElement.lang = locale;
+  }, [locale, isRTL]);
+
+  const t = (key: keyof TranslationKeys, params?: Record<string, string | number>) => {
+    return getTranslation(locale, key, params);
+  };
+
   const [user, setUser] = useState<UserAccount>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_USER);
@@ -358,6 +395,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         theme,
         isPremium,
         user,
+        locale,
+        isRTL,
+        setLocale,
+        t,
         currentDate,
         overallStreak,
         todayCheckInRatio,

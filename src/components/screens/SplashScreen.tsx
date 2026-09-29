@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useHabit } from '../../context/HabitContext';
 import { AurumMark } from '../common/Icons';
+import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
+import { SUPPORTED_LANGUAGES } from '../../data/languages';
 
 export const SplashScreen: React.FC = () => {
-  const { setScreen, login } = useHabit();
+  const { setScreen, login, locale, t } = useHabit();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isLangModalOpen, setIsLangModalOpen] = useState(false);
+
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === locale) || SUPPORTED_LANGUAGES[0];
 
   const handleGoogleSignIn = () => {
     setIsGoogleLoading(true);
@@ -27,8 +32,19 @@ export const SplashScreen: React.FC = () => {
         aria-hidden="true"
       />
 
-      {/* Top spacer for status bar ergonomics */}
-      <div className="pt-8" />
+      {/* Top bar with Language Selector */}
+      <div className="relative z-10 flex items-center justify-between pt-2">
+        <span className="text-[10px] uppercase tracking-widest text-[#9C978F]/60">AURUM OS</span>
+        <button
+          onClick={() => setIsLangModalOpen(true)}
+          className="px-2.5 py-1 rounded-full border border-[#26282C] bg-[#15171B]/80 hover:border-[#E9CC8B]/50 text-xs text-[#F3F0E9] flex items-center gap-1.5 transition-colors cursor-pointer"
+          title={t('selectLanguage')}
+        >
+          <span>{currentLang.flag}</span>
+          <span className="text-[11px] font-sans">{currentLang.nativeName}</span>
+          <span className="text-[9px] text-[#9C978F]">▼</span>
+        </button>
+      </div>
 
       {/* Central Mark & Wordmark */}
       <div className="relative z-10 flex flex-col items-center text-center my-auto transition-transform duration-300">
@@ -55,7 +71,7 @@ export const SplashScreen: React.FC = () => {
           onClick={() => setScreen('home')}
           className="w-full h-12.5 rounded-2xl bg-gold-gradient text-[#0A0B0D] font-medium text-sm tracking-wide flex items-center justify-center gold-btn-shadow hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
         >
-          Begin
+          {t('begin')}
         </button>
 
         {/* Secondary Ghost Button: Sign in with Google */}
@@ -90,7 +106,7 @@ export const SplashScreen: React.FC = () => {
               />
             </svg>
           )}
-          <span>{isGoogleLoading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
+          <span>{isGoogleLoading ? 'Connecting to Google...' : t('signInWithGoogle')}</span>
         </button>
 
         {/* Tertiary Subtle Link */}
@@ -98,9 +114,14 @@ export const SplashScreen: React.FC = () => {
           onClick={() => setScreen('account')}
           className="w-full py-2 bg-transparent text-[#9C978F] hover:text-[#F3F0E9] font-normal text-xs transition-colors cursor-pointer"
         >
-          I already have an account
+          {t('alreadyHaveAccount')}
         </button>
       </div>
+
+      <LanguageSelectorModal
+        isOpen={isLangModalOpen}
+        onClose={() => setIsLangModalOpen(false)}
+      />
     </div>
   );
 };

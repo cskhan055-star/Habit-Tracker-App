@@ -16,6 +16,8 @@ import { WidgetPreviewScreen } from './components/screens/WidgetPreviewScreen';
 import { AccountScreen } from './components/screens/AccountScreen';
 import { AurumMark, CrownIcon } from './components/common/Icons';
 import { THEME_PRESETS } from './data/themePresets';
+import { LanguageSelectorModal } from './components/common/LanguageSelectorModal';
+import { SUPPORTED_LANGUAGES } from './data/languages';
 
 const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
   { id: 'account', label: 'Account', number: '01' },
@@ -28,8 +30,11 @@ const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
 ];
 
 function AppContent() {
-  const { activeScreen, setScreen, theme, setTheme, resetToDefaults, user } = useHabit();
+  const { activeScreen, setScreen, theme, setTheme, resetToDefaults, user, locale, isRTL } = useHabit();
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === locale) || SUPPORTED_LANGUAGES[0];
 
   const renderActiveScreen = () => {
     switch (activeScreen) {
@@ -125,6 +130,17 @@ function AppContent() {
               })}
             </div>
 
+            {/* Language Selector Pill */}
+            <button
+              onClick={() => setIsLanguageModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg border border-[#26282C] bg-[#15171B] hover:border-[#E9CC8B]/40 text-xs font-medium text-[#F3F0E9] transition-all cursor-pointer flex items-center gap-1.5"
+              title="Change Language (English Primary)"
+            >
+              <span className="text-sm">{currentLang.flag}</span>
+              <span className="font-sans text-[11px] hidden sm:inline">{currentLang.nativeName}</span>
+              <span className="text-[10px] text-[#9C978F]">▼</span>
+            </button>
+
             {/* Account / Login Quick Button */}
             <button
               onClick={() => setScreen('account')}
@@ -206,6 +222,11 @@ function AppContent() {
           </div>
         )}
       </main>
+
+      <LanguageSelectorModal
+        isOpen={isLanguageModalOpen}
+        onClose={() => setIsLanguageModalOpen(false)}
+      />
     </div>
   );
 }

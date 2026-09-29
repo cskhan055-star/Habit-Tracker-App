@@ -3,6 +3,8 @@ import { useHabit } from '../../context/HabitContext';
 import { FlameIcon, getHabitIconComponent, CrownIcon } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
 import { ThemeSelectorModal } from '../common/ThemeSelectorModal';
+import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
+import { SUPPORTED_LANGUAGES } from '../../data/languages';
 import { HABIT_CATEGORIES, getCategoryById } from '../../data/categories';
 import {
   calculateHabitStats,
@@ -23,12 +25,18 @@ export const HomeScreen: React.FC = () => {
     setScreen,
     isPremium,
     user,
+    locale,
+    t,
   } = useHabit();
 
   const [animatingHabitId, setAnimatingHabitId] = useState<string | null>(null);
+  const [isStreakShimmering, setIsStreakShimmering] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === locale) || SUPPORTED_LANGUAGES[0];
 
   // Filter habits by name and category
   const filteredHabits = habits.filter((habit) => {
@@ -41,6 +49,17 @@ export const HomeScreen: React.FC = () => {
   const handleCheckInClick = (e: React.MouseEvent, habitId: string) => {
     e.stopPropagation();
     setAnimatingHabitId(habitId);
+    
+    // Check if habit is being completed (not uncompleted)
+    const habitDates = checkIns[habitId] || [];
+    const isAlreadyCompleted = habitDates.includes(currentDate);
+    if (!isAlreadyCompleted) {
+      setIsStreakShimmering(true);
+      setTimeout(() => {
+        setIsStreakShimmering(false);
+      }, 900);
+    }
+
     toggleCheckIn(habitId, currentDate);
     setTimeout(() => {
       setAnimatingHabitId(null);
@@ -62,12 +81,22 @@ export const HomeScreen: React.FC = () => {
               Thursday, 24 September
             </span>
             <h1 className="font-serif text-2xl font-normal text-[#F3F0E9] mt-0.5 tracking-tight">
-              Good evening
+              {t('homeGreetingEvening')}
             </h1>
           </div>
 
-          {/* Right actions: Theme Presets + Install + Crown */}
+          {/* Right actions: Language + Theme + Account + Crown */}
           <div className="flex items-center gap-2">
+            {/* Language Selector Button */}
+            <button
+              onClick={() => setIsLanguageModalOpen(true)}
+              className="w-10 h-10 rounded-full border border-[#26282C] bg-[#15171B] flex items-center justify-center text-[#F3F0E9] hover:border-[#E9CC8B]/50 transition-colors cursor-pointer"
+              title={t('selectLanguage')}
+              aria-label={t('selectLanguage')}
+            >
+              <span className="text-base select-none">{currentLang.flag}</span>
+            </button>
+
             <button
               onClick={() => setIsThemeModalOpen(true)}
               className="w-10 h-10 rounded-full border border-[#26282C] bg-[#15171B] flex items-center justify-center text-[#9C978F] hover:text-[#E9CC8B] hover:border-[#E9CC8B]/40 transition-colors cursor-pointer"
@@ -120,18 +149,31 @@ export const HomeScreen: React.FC = () => {
           onClose={() => setIsThemeModalOpen(false)}
         />
 
+        {/* Language Selector Modal */}
+        <LanguageSelectorModal
+          isOpen={isLanguageModalOpen}
+          onClose={() => setIsLanguageModalOpen(false)}
+        />
+
         {/* Hero Streak Card */}
         <section className="relative overflow-hidden rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-7">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[#9C978F] text-xs font-normal tracking-wide">
-                Overall streak
+                {t('homeStreakLabel')}
               </span>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="font-serif text-4xl sm:text-5xl font-normal text-gold-gradient tracking-tight">
+                <span
+                  key={isStreakShimmering ? 'shimmer-active' : 'shimmer-idle'}
+                  className={`font-serif text-4xl sm:text-5xl font-normal tracking-tight transition-transform duration-300 ${
+                    isStreakShimmering
+                      ? 'animate-gold-shimmer'
+                      : 'text-gold-gradient'
+                  }`}
+                >
                   {overallStreak}
                 </span>
-                <span className="text-[#9C978F] text-sm font-normal">days</span>
+                <span className="text-[#9C978F] text-sm font-normal">{t('homeDays')}</span>
               </div>
             </div>
 
@@ -181,9 +223,9 @@ export const HomeScreen: React.FC = () => {
         {/* Today's Habits Section */}
         <section className="mb-6">
           <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-[#F3F0E9] text-base font-medium tracking-tight">Today</h2>
+            <h2 className="text-[#F3F0E9] text-base font-medium tracking-tight">{t('homeTodaySection')}</h2>
             <span className="text-[#9C978F] text-xs font-normal">
-              {todayCheckInRatio.completed} of {todayCheckInRatio.total} done
+              {t('homeTodayDone', { done: todayCheckInRatio.completed, total: todayCheckInRatio.total })}
             </span>
           </div>
 
@@ -206,7 +248,7 @@ export const HomeScreen: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search habits..."
+                placeholder={t('searchHabits')}
                 className="w-full bg-transparent text-xs sm:text-sm text-[#F3F0E9] placeholder-[#9C978F]/40 outline-none"
               />
               {searchQuery && (
@@ -235,7 +277,7 @@ export const HomeScreen: React.FC = () => {
                   : 'bg-[#15171B] border border-[#26282C] text-[#9C978F] hover:text-[#F3F0E9]'
               }`}
             >
-              All
+              {t('allCategories')}
             </button>
             {HABIT_CATEGORIES.map((cat) => {
               const isCatActive = selectedCategory === cat.id;

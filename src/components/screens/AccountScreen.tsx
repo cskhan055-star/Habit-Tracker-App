@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useHabit } from '../../context/HabitContext';
 import { CrownIcon, AurumMark } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
+import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
+import { SUPPORTED_LANGUAGES } from '../../data/languages';
 
 export const AccountScreen: React.FC = () => {
-  const { user, login, logout, updateUser, syncCloudData, setScreen, habits, checkIns, isPremium, setPremium } = useHabit();
+  const { user, login, logout, updateUser, syncCloudData, setScreen, habits, checkIns, isPremium, setPremium, locale, t } = useHabit();
 
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [emailInput, setEmailInput] = useState(user.email || 'cskhan055@gmail.com');
@@ -18,6 +20,9 @@ export const AccountScreen: React.FC = () => {
   const [editName, setEditName] = useState(user.name);
   const [editEmail, setEditEmail] = useState(user.email);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const [isLangModalOpen, setIsLangModalOpen] = useState(false);
+
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === locale) || SUPPORTED_LANGUAGES[0];
 
   const showToast = (msg: string) => {
     setNotificationToast(msg);
@@ -293,6 +298,43 @@ export const AccountScreen: React.FC = () => {
               )}
             </div>
 
+            {/* Language & Regional Settings */}
+            <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-lg select-none">
+                  {currentLang.flag}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-[#F3F0E9] block">
+                      {t('language')}: {currentLang.nativeName}
+                    </span>
+                    {currentLang.code === 'en' && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#C6A15B]/20 text-[#E9CC8B] border border-[#C6A15B]/30">
+                        Primary
+                      </span>
+                    )}
+                    {currentLang.isRTL && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#1F2228] text-[#9C978F]">
+                        RTL
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-[#9C978F]">
+                    {currentLang.name} • 30+ languages supported
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsLangModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg border border-[#26282C] bg-[#1C1F24] text-xs text-[#E9CC8B] hover:border-[#E9CC8B]/50 transition-colors cursor-pointer"
+              >
+                Change
+              </button>
+            </div>
+
             {/* Account Controls & Archive */}
             <div className="rounded-2xl bg-[#15171B] border border-[#26282C] divide-y divide-[#26282C] overflow-hidden">
               <button
@@ -533,6 +575,11 @@ export const AccountScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      <LanguageSelectorModal
+        isOpen={isLangModalOpen}
+        onClose={() => setIsLangModalOpen(false)}
+      />
 
       <BottomNav activeScreen="home" />
     </div>
