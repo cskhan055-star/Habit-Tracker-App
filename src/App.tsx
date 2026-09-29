@@ -13,12 +13,12 @@ import { HabitDetailScreen } from './components/screens/HabitDetailScreen';
 import { StatsScreen } from './components/screens/StatsScreen';
 import { PaywallScreen } from './components/screens/PaywallScreen';
 import { WidgetPreviewScreen } from './components/screens/WidgetPreviewScreen';
-import { AurumMark } from './components/common/Icons';
+import { AccountScreen } from './components/screens/AccountScreen';
+import { AurumMark, CrownIcon } from './components/common/Icons';
 import { THEME_PRESETS } from './data/themePresets';
-import { InstallAppModal } from './components/common/InstallAppModal';
 
 const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
-  { id: 'splash', label: 'Splash', number: '01' },
+  { id: 'account', label: 'Account', number: '01' },
   { id: 'home', label: 'Home', number: '02' },
   { id: 'add', label: 'Add/Edit', number: '03' },
   { id: 'detail', label: 'Detail', number: '04' },
@@ -28,12 +28,13 @@ const SCREEN_TABS: { id: ScreenId; label: string; number: string }[] = [
 ];
 
 function AppContent() {
-  const { activeScreen, setScreen, theme, setTheme, resetToDefaults } = useHabit();
+  const { activeScreen, setScreen, theme, setTheme, resetToDefaults, user } = useHabit();
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
   const renderActiveScreen = () => {
     switch (activeScreen) {
+      case 'account':
+        return <AccountScreen />;
       case 'splash':
         return <SplashScreen />;
       case 'home':
@@ -124,18 +125,18 @@ function AppContent() {
               })}
             </div>
 
-            {/* Android APK / Install Button */}
+            {/* Account / Login Quick Button */}
             <button
-              onClick={() => setIsInstallModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-gold-gradient text-[#0A0B0D] text-xs font-semibold hover:brightness-105 shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
-              title="Android APK Build & Install"
+              onClick={() => setScreen('account')}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeScreen === 'account'
+                  ? 'bg-gold-gradient text-[#0A0B0D] border-transparent font-semibold shadow-sm'
+                  : 'border-[#26282C] bg-[#15171B] text-[#F3F0E9] hover:border-[#E9CC8B]/40 hover:text-[#E9CC8B]'
+              }`}
+              title="Account & Profile"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>Build / Download APK</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="max-w-[90px] truncate">{user.isLoggedIn ? user.name.split(' ')[0] : 'Sign In'}</span>
             </button>
 
             {/* Frame toggle for desktop */}
@@ -205,12 +206,6 @@ function AppContent() {
           </div>
         )}
       </main>
-
-      {/* Android & Mobile Install Modal */}
-      <InstallAppModal
-        isOpen={isInstallModalOpen}
-        onClose={() => setIsInstallModalOpen(false)}
-      />
     </div>
   );
 }

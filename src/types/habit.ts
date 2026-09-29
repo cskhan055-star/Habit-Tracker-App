@@ -21,7 +21,17 @@ export interface Habit {
   createdAt: string; // YYYY-MM-DD
 }
 
-export type ScreenId = 'splash' | 'home' | 'add' | 'detail' | 'stats' | 'paywall' | 'widget';
+export type ScreenId = 'account' | 'splash' | 'home' | 'add' | 'detail' | 'stats' | 'paywall' | 'widget';
+
+export interface UserAccount {
+  isLoggedIn: boolean;
+  name: string;
+  email: string;
+  memberSince: string;
+  plan: 'free' | 'monthly' | 'yearly' | 'lifetime';
+  cloudSyncEnabled: boolean;
+  lastSyncedAt?: string;
+}
 
 export type LuxuryTheme = 'obsidian' | 'antique-gold' | 'ivory-marble';
 

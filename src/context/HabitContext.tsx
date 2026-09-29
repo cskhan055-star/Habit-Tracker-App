@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Habit, CheckInMap, HabitReflectionMap, ScreenId, LuxuryTheme } from '../types/habit';
+import { Habit, CheckInMap, HabitReflectionMap, ScreenId, LuxuryTheme, UserAccount } from '../types/habit';
 import { INITIAL_HABITS, generateInitialCheckIns, generateInitialReflections } from '../data/initialData';
 import {
   DEFAULT_CURRENT_DATE,
@@ -18,6 +18,7 @@ interface HabitContextType {
   editingHabitId: string | null;
   theme: LuxuryTheme;
   isPremium: boolean;
+  user: UserAccount;
   currentDate: string;
   overallStreak: number;
   todayCheckInRatio: { completed: number; total: number };
@@ -33,6 +34,10 @@ interface HabitContextType {
   setTheme: (theme: LuxuryTheme) => void;
   toggleTheme: () => void;
   setPremium: (status: boolean) => void;
+  login: (email: string, name?: string, plan?: 'free' | 'monthly' | 'yearly' | 'lifetime') => void;
+  logout: () => void;
+  updateUser: (updates: Partial<UserAccount>) => void;
+  syncCloudData: () => Promise<boolean>;
   resetToDefaults: () => void;
 }
 
@@ -43,8 +48,29 @@ const STORAGE_KEY_CHECKINS = 'aurum_checkins_v1';
 const STORAGE_KEY_REFLECTIONS = 'aurum_reflections_v1';
 const STORAGE_KEY_THEME = 'aurum_theme_v1';
 const STORAGE_KEY_PREMIUM = 'aurum_premium_v1';
+const STORAGE_KEY_USER = 'aurum_user_v1';
+
+const DEFAULT_USER: UserAccount = {
+  isLoggedIn: true,
+  name: 'S. Khan',
+  email: 'cskhan055@gmail.com',
+  memberSince: 'September 2026',
+  plan: 'lifetime',
+  cloudSyncEnabled: true,
+  lastSyncedAt: 'Just now',
+};
 
 export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserAccount>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_USER);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return DEFAULT_USER;
+  });
+
   const [habits, setHabits] = useState<Habit[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_HABITS);
@@ -148,6 +174,53 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
   }, [isPremium]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  const login = (email: string, name?: string, plan: 'free' | 'monthly' | 'yearly' | 'lifetime' = 'lifetime') => {
+    setUser({
+      isLoggedIn: true,
+      email,
+      name: name || email.split('@')[0],
+      memberSince: 'September 2026',
+      plan,
+      cloudSyncEnabled: true,
+      lastSyncedAt: 'Just now',
+    });
+    if (plan !== 'free') {
+      setIsPremium(true);
+    }
+  };
+
+  const logout = () => {
+    setUser((prev) => ({
+      ...prev,
+      isLoggedIn: false,
+    }));
+  };
+
+  const updateUser = (updates: Partial<UserAccount>) => {
+    setUser((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
+  const syncCloudData = async (): Promise<boolean> => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setUser((prev) => ({
+      ...prev,
+      lastSyncedAt: `Today at ${now}`,
+    }));
+    return true;
+  };
 
   const toggleCheckIn = (habitId: string, dateStr: string = currentDate) => {
     setCheckIns((prev) => {
@@ -284,6 +357,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         editingHabitId,
         theme,
         isPremium,
+        user,
         currentDate,
         overallStreak,
         todayCheckInRatio,
@@ -299,6 +373,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setTheme,
         toggleTheme,
         setPremium: setIsPremium,
+        login,
+        logout,
+        updateUser,
+        syncCloudData,
         resetToDefaults,
       }}
     >

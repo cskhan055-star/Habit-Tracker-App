@@ -5,13 +5,14 @@ import { CrownIcon } from '../common/Icons';
 type PlanOption = 'monthly' | 'yearly' | 'lifetime';
 
 export const PaywallScreen: React.FC = () => {
-  const { setScreen, isPremium, setPremium } = useHabit();
+  const { setScreen, isPremium, setPremium, updateUser } = useHabit();
   const [selectedPlan, setSelectedPlan] = useState<PlanOption>('yearly');
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleStartTrial = () => {
     setIsSuccess(true);
     setPremium(true);
+    updateUser({ plan: selectedPlan });
     setTimeout(() => {
       setScreen('home');
     }, 1200);
@@ -125,7 +126,7 @@ export const PaywallScreen: React.FC = () => {
           >
             <span className="text-[11px] text-[#9C978F] block">Lifetime</span>
             <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
-              $9.99
+              $35.00
             </span>
             <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">one time</span>
           </button>
