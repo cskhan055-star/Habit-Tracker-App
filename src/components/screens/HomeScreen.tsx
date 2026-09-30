@@ -31,6 +31,8 @@ export const HomeScreen: React.FC = () => {
     setSelectedHabitId,
     setScreen,
     isPremium,
+    entitlement,
+    openPaywall,
     user,
     locale,
     t,
@@ -590,7 +592,13 @@ export const HomeScreen: React.FC = () => {
                   No habits established yet. Discipline begins with a single commitment.
                 </p>
                 <button
-                  onClick={() => setScreen('add')}
+                  onClick={() => {
+                    if (habits.length >= entitlement.maxHabits) {
+                      openPaywall({ trigger: 'habit_limit_reached' });
+                    } else {
+                      setScreen('add');
+                    }
+                  }}
                   className="px-5 py-2.5 rounded-xl bg-gold-gradient text-[#0A0B0D] font-medium text-xs tracking-wide cursor-pointer gold-btn-shadow"
                 >
                   Create your first habit

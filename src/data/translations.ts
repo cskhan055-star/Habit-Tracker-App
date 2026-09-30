@@ -59,6 +59,17 @@ export interface TranslationKeys {
   consistencyScoreLabel?: string;
   smartConsistencyTitle?: string;
   travelProtectionTooltip?: string;
+  // Billing & Gating Keys
+  habitLimitReachedTitle?: string;
+  habitLimitReachedDesc?: string;
+  languageLockedTitle?: string;
+  languageLockedDesc?: string;
+  unlockLanguageSubheadline?: string;
+  calendarHistoryLockedNote?: string;
+  restorePurchases?: string;
+  purchasing?: string;
+  purchaseFailed?: string;
+  purchaseRestored?: string;
 }
 
 export const TRANSLATIONS: Record<string, TranslationKeys> = {
@@ -123,6 +134,16 @@ export const TRANSLATIONS: Record<string, TranslationKeys> = {
     consistencyScoreLabel: 'Score',
     smartConsistencyTitle: 'Smart Consistency Score',
     travelProtectionTooltip: 'Long-press to excuse / travel protect',
+    habitLimitReachedTitle: 'Free Habit Limit Reached',
+    habitLimitReachedDesc: 'Free tier includes up to 5 habits. Upgrade to Aurum Gold for unlimited habits.',
+    languageLockedTitle: 'Aurum Gold Required',
+    languageLockedDesc: 'Unlock all 30+ regional translations with Aurum Gold.',
+    unlockLanguageSubheadline: 'Including full {language} support',
+    calendarHistoryLockedNote: 'Free tier shows the current month. Upgrade to Aurum Gold to unlock full historical heatmap archives.',
+    restorePurchases: 'Restore Purchases',
+    purchasing: 'Processing via Google Play...',
+    purchaseFailed: 'Purchase could not be completed. Please try again.',
+    purchaseRestored: 'Purchases restored successfully.',
   },
 
   // 2. Spanish

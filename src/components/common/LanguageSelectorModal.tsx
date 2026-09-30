@@ -8,7 +8,7 @@ interface LanguageSelectorModalProps {
 }
 
 export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({ isOpen, onClose }) => {
-  const { locale, setLocale, t } = useHabit();
+  const { locale, setLocale, entitlement, openPaywall, t } = useHabit();
   const [searchTerm, setSearchTerm] = useState('');
 
   if (!isOpen) return null;
@@ -23,6 +23,17 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({ is
   });
 
   const handleSelect = (lang: LanguageInfo) => {
+    // Feature Gating: Requirement 5:
+    // Non-English options show a small lock icon and open Paywall with subheadline adjusted if !isGold
+    if (lang.code !== 'en' && !entitlement.unlimitedLanguages) {
+      onClose();
+      openPaywall({
+        trigger: 'language_locked',
+        targetLanguageName: lang.name,
+      });
+      return;
+    }
+
     setLocale(lang.code);
     onClose();
   };
@@ -152,6 +163,17 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({ is
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
+                    </div>
+                  ) : lang.code !== 'en' && !entitlement.unlimitedLanguages ? (
+                    <div
+                      className="flex items-center gap-1 text-[11px] text-[#C6A15B] font-medium"
+                      title="Aurum Gold Required"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      <span className="text-[10px] tracking-wide">Gold</span>
                     </div>
                   ) : (
                     <span className="text-xs text-[#9C978F]/50 group-hover:text-[#E9CC8B] transition-colors">

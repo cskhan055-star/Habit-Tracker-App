@@ -55,5 +55,20 @@
   "markAsDone": "Mark as completed",
   "markAsMissed": "Reset to uncompleted",
   "consistencyScoreLabel": "Consistency Score",
-  "skippedDayNote": "Excused travel or rest day — protected from streak resets"
+  "skippedDayNote": "Excused travel or rest day — protected from streak resets",
+  "habitLimitReachedTitle": "Free Habit Limit Reached",
+  "habitLimitReachedDesc": "Free tier includes up to 5 habits. Upgrade to Aurum Gold for unlimited habits.",
+  "languageLockedTitle": "Aurum Gold Required",
+  "languageLockedDesc": "Unlock all 30+ regional translations with Aurum Gold.",
+  "unlockLanguageSubheadline": "Including full {language} support",
+  "@unlockLanguageSubheadline": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+  "calendarHistoryLockedNote": "Free tier shows the current month. Upgrade to Aurum Gold to unlock full historical heatmap archives.",
+  "restorePurchases": "Restore Purchases",
+  "purchasing": "Processing via Google Play...",
+  "purchaseFailed": "Purchase could not be completed. Please try again.",
+  "purchaseRestored": "Purchases restored successfully."
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   Habit,
   CheckInMap,
@@ -20,8 +20,16 @@ import {
 import { triggerCheckInHaptic } from '../utils/haptics';
 import { isLanguageRTL } from '../data/languages';
 import { getTranslation, TranslationKeys } from '../data/translations';
+import { AurumEntitlement } from '../billing/entitlement';
+import { billingService } from '../billing/BillingService';
+import { ProductDetails, PurchaseDetails } from '../billing/products';
 
 export type HomeViewMode = 'list' | 'focus';
+
+export interface PaywallContextOptions {
+  trigger?: 'habit_limit_reached' | 'language_locked' | 'calendar_history_locked' | 'general';
+  targetLanguageName?: string;
+}
 
 interface HabitContextType {
   habits: Habit[];
@@ -33,6 +41,9 @@ interface HabitContextType {
   editingHabitId: string | null;
   theme: LuxuryTheme;
   isPremium: boolean;
+  entitlement: AurumEntitlement; // Centralized Entitlement model with reactive getters
+  paywallOptions: PaywallContextOptions;
+  openPaywall: (options?: PaywallContextOptions) => void;
   user: UserAccount;
   locale: string;
   isRTL: boolean;
@@ -56,6 +67,11 @@ interface HabitContextType {
   setTheme: (theme: LuxuryTheme) => void;
   toggleTheme: () => void;
   setPremium: (status: boolean) => void;
+  // Billing methods
+  buyProduct: (product: ProductDetails) => Promise<void>;
+  restorePurchases: () => Promise<void>;
+  isPurchasePending: boolean;
+  lastPurchaseError: string | null;
   login: (email: string, name?: string, plan?: 'free' | 'monthly' | 'yearly' | 'lifetime') => void;
   logout: () => void;
   updateUser: (updates: Partial<UserAccount>) => void;
@@ -80,7 +96,7 @@ const DEFAULT_USER: UserAccount = {
   name: 'S. Khan',
   email: 'cskhan055@gmail.com',
   memberSince: 'September 2026',
-  plan: 'lifetime',
+  plan: 'free',
   cloudSyncEnabled: true,
   lastSyncedAt: 'Today at 09:40 AM',
 };
@@ -136,7 +152,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_HABITS;
   });
 
-  // Feature 3: Home view mode persisted preference (List vs Focus view)
+  // Home view mode persisted preference (List vs Focus view)
   const [homeViewMode, setHomeViewModeState] = useState<HomeViewMode>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_HOME_VIEW_MODE) as HomeViewMode;
@@ -156,7 +172,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Feature 2: Support rich check-in status (done | missed | skipped)
+  // Support rich check-in status (done | missed | skipped)
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecordMap>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CHECKIN_RECORDS);
@@ -165,7 +181,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
 
-    // Build from initial check-ins (legacy array format -> records format)
     const initialArrays = generateInitialCheckIns();
     const result: CheckInRecordMap = {};
     Object.entries(initialArrays).forEach(([hId, dates]) => {
@@ -178,7 +193,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   // Derive legacy checkIns map for full backwards compatibility
-  const checkIns: CheckInMap = React.useMemo(() => {
+  const checkIns: CheckInMap = useMemo(() => {
     const map: CheckInMap = {};
     Object.entries(checkInRecords).forEach(([hId, recs]) => {
       map[hId] = Object.entries(recs)
@@ -202,6 +217,14 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>('habit-2'); // Default to Read 20 pages
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
+  // Contextual Paywall trigger state
+  const [paywallOptions, setPaywallOptions] = useState<PaywallContextOptions>({ trigger: 'general' });
+
+  const openPaywall = (options: PaywallContextOptions = { trigger: 'general' }) => {
+    setPaywallOptions(options);
+    setActiveScreen('paywall');
+  };
+
   const [theme, setTheme] = useState<LuxuryTheme>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_THEME) as LuxuryTheme;
@@ -216,6 +239,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return 'obsidian';
   });
 
+  // In-App Purchase / Billing State
   const [isPremium, setIsPremium] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PREMIUM);
@@ -225,6 +249,64 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return false;
   });
+
+  const [isPurchasePending, setIsPurchasePending] = useState<boolean>(false);
+  const [lastPurchaseError, setLastPurchaseError] = useState<string | null>(null);
+
+  // Centralized Entitlement model instance (Requirement 3)
+  const entitlement = useMemo(() => new AurumEntitlement(isPremium), [isPremium]);
+
+  // Subscribe to Google Play Billing updates on app start
+  useEffect(() => {
+    const unsubscribe = billingService.listenToPurchaseUpdates((purchase: PurchaseDetails) => {
+      switch (purchase.status) {
+        case 'pending':
+          setIsPurchasePending(true);
+          setLastPurchaseError(null);
+          break;
+
+        case 'purchased':
+        case 'restored':
+          setIsPurchasePending(false);
+          setLastPurchaseError(null);
+          setIsPremium(true);
+
+          // Update user plan to match purchased product
+          if (purchase.productId.includes('monthly')) {
+            setUser((prev) => ({ ...prev, plan: 'monthly' }));
+          } else if (purchase.productId.includes('yearly')) {
+            setUser((prev) => ({ ...prev, plan: 'yearly' }));
+          } else {
+            setUser((prev) => ({ ...prev, plan: 'lifetime' }));
+          }
+          break;
+
+        case 'error':
+          setIsPurchasePending(false);
+          setLastPurchaseError(purchase.errorMessage || 'Purchase failed. Please check your payment method.');
+          break;
+
+        case 'canceled':
+          setIsPurchasePending(false);
+          break;
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const buyProduct = async (product: ProductDetails) => {
+    setLastPurchaseError(null);
+    await billingService.buy(product);
+  };
+
+  const restorePurchases = async () => {
+    setLastPurchaseError(null);
+    setIsPurchasePending(true);
+    await billingService.restorePurchases();
+  };
 
   const currentDate = DEFAULT_CURRENT_DATE;
 
@@ -486,6 +568,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         editingHabitId,
         theme,
         isPremium,
+        entitlement,
+        paywallOptions,
+        openPaywall,
         user,
         locale,
         isRTL,
@@ -509,6 +594,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setTheme,
         toggleTheme,
         setPremium: setIsPremium,
+        buyProduct,
+        restorePurchases,
+        isPurchasePending,
+        lastPurchaseError,
         login,
         logout,
         updateUser,

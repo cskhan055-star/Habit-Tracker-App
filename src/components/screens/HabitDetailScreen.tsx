@@ -24,15 +24,21 @@ export const HabitDetailScreen: React.FC = () => {
     setEditingHabitId,
     setScreen,
     currentDate,
+    entitlement,
+    openPaywall,
     t,
   } = useHabit();
 
   // Reference habit
   const habit = habits.find((h) => h.id === selectedHabitId) || habits[0];
 
-  // Calendar month state (default to Sept 2026)
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(8); // 8 is September (0-indexed)
+  // Calendar month state (default to current month: Sept 2026)
+  const defaultDateObj = parseDate(currentDate);
+  const defaultYear = defaultDateObj.getFullYear();
+  const defaultMonth = defaultDateObj.getMonth();
+
+  const [currentYear, setCurrentYear] = useState<number>(defaultYear);
+  const [currentMonth, setCurrentMonth] = useState<number>(defaultMonth);
 
   // Reflections & Action Sheet state
   const [selectedDate, setSelectedDate] = useState<string>(currentDate);
@@ -82,7 +88,16 @@ export const HabitDetailScreen: React.FC = () => {
     }
   };
 
+  const isCurrentMonthView = currentYear === defaultYear && currentMonth === defaultMonth;
+
   const handlePrevMonth = () => {
+    // Feature Gating: Requirement 5:
+    // Only render the current month if !fullHeatmapHistory
+    if (!entitlement.fullHeatmapHistory) {
+      openPaywall({ trigger: 'calendar_history_locked' });
+      return;
+    }
+
     if (currentMonth === 0) {
       setCurrentMonth(11);
       setCurrentYear((y) => y - 1);
@@ -92,6 +107,11 @@ export const HabitDetailScreen: React.FC = () => {
   };
 
   const handleNextMonth = () => {
+    if (!entitlement.fullHeatmapHistory && isCurrentMonthView) {
+      openPaywall({ trigger: 'calendar_history_locked' });
+      return;
+    }
+
     if (currentMonth === 11) {
       setCurrentMonth(0);
       setCurrentYear((y) => y + 1);
@@ -231,9 +251,24 @@ export const HabitDetailScreen: React.FC = () => {
               </svg>
             </button>
 
-            <span className="font-serif text-base font-normal text-[#F3F0E9] tracking-wide">
-              {monthNames[currentMonth]} {currentYear}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif text-base font-normal text-[#F3F0E9] tracking-wide">
+                {monthNames[currentMonth]} {currentYear}
+              </span>
+              {!entitlement.fullHeatmapHistory && (
+                <button
+                  onClick={() => openPaywall({ trigger: 'calendar_history_locked' })}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-[#C6A15B] bg-[#C6A15B]/15 border border-[#C6A15B]/30 hover:bg-[#C6A15B]/25 transition-colors cursor-pointer"
+                  title="Upgrade to unlock full historical months"
+                >
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <span>History</span>
+                </button>
+              )}
+            </div>
 
             <button
               onClick={handleNextMonth}

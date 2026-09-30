@@ -7,9 +7,16 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeScreen }) => {
-  const { setScreen, setEditingHabitId, t } = useHabit();
+  const { setScreen, setEditingHabitId, habits, entitlement, openPaywall, t } = useHabit();
 
   const handleOpenAdd = () => {
+    // Feature Gating: Requirement 5:
+    // If habit count >= maxHabits (5 if free, unlimited if gold), open Paywall instead
+    if (habits.length >= entitlement.maxHabits) {
+      openPaywall({ trigger: 'habit_limit_reached' });
+      return;
+    }
+
     setEditingHabitId(null);
     setScreen('add');
   };

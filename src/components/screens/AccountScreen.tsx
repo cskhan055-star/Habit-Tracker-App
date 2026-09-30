@@ -3,6 +3,7 @@ import { useHabit } from '../../context/HabitContext';
 import { CrownIcon, AurumMark } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
 import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
+import { DevicePairingSection } from '../common/DevicePairingSection';
 import { SUPPORTED_LANGUAGES } from '../../data/languages';
 
 export const AccountScreen: React.FC = () => {
@@ -224,10 +225,12 @@ export const AccountScreen: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-xs font-semibold text-[#F3F0E9] block">
-                      Aurum Gold Access
+                      {isPremium ? 'Aurum Gold Access' : 'Aurum Free Tier'}
                     </span>
                     <span className="text-[10px] text-[#9C978F]">
-                      Active Lifetime license ($35.00)
+                      {isPremium
+                        ? `Active ${user.plan === 'monthly' ? 'Monthly ($2.99/mo)' : user.plan === 'yearly' ? 'Yearly ($19.99/yr)' : 'Lifetime ($35.00)'}`
+                        : 'Limited to 5 habits & basic features'}
                     </span>
                   </div>
                 </div>
@@ -236,22 +239,26 @@ export const AccountScreen: React.FC = () => {
                   onClick={() => setScreen('paywall')}
                   className="px-2.5 py-1 rounded-lg bg-gold-gradient text-[#0A0B0D] text-[11px] font-semibold hover:brightness-105 transition-all cursor-pointer"
                 >
-                  View Plans
+                  {isPremium ? 'Manage' : 'Upgrade'}
                 </button>
               </div>
 
               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-[#2D281D] text-center">
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
                   <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Plan</span>
-                  <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5">Lifetime</span>
+                  <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5 capitalize">
+                    {isPremium ? user.plan : 'Free'}
+                  </span>
                 </div>
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
                   <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Cloud</span>
                   <span className="font-serif text-xs text-emerald-400 font-medium block mt-0.5">Active</span>
                 </div>
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
-                  <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Device Limit</span>
-                  <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5">Unlimited</span>
+                  <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Habit Limit</span>
+                  <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5">
+                    {isPremium ? 'Unlimited' : '5 Habits'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -334,6 +341,9 @@ export const AccountScreen: React.FC = () => {
                 Change
               </button>
             </div>
+
+            {/* Smartwatch & Wearables Pairing (Bluetooth) */}
+            <DevicePairingSection onShowToast={showToast} />
 
             {/* Account Controls & Archive */}
             <div className="rounded-2xl bg-[#15171B] border border-[#26282C] divide-y divide-[#26282C] overflow-hidden">
