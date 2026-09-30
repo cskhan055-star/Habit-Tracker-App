@@ -166,6 +166,19 @@ body {
   will-change: background-position, transform, filter;
 }
 
+/* Diagonal gold hairline texture for skipped / travel protected calendar cells */
+.skipped-diagonal-pattern {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(198, 161, 91, 0.08),
+    rgba(198, 161, 91, 0.08) 3px,
+    rgba(198, 161, 91, 0.35) 3px,
+    rgba(198, 161, 91, 0.35) 4.5px
+  ) !important;
+  border-color: rgba(198, 161, 91, 0.5) !important;
+  color: var(--gold-secondary) !important;
+}
+
 .bg-gold-gradient {
   background: var(--gold-gradient) !important;
 }

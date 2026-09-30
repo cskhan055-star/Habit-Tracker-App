@@ -46,6 +46,19 @@ export interface TranslationKeys {
   syncNow: string;
   exportData: string;
   logOut: string;
+  // v1.1 Feature Keys
+  homeFocusModeLabel?: string;
+  homeListModeLabel?: string;
+  homeMoreToday?: string;
+  homeAllDoneToday?: string;
+  calendarSkippedLabel?: string;
+  markAsSkipped?: string;
+  markAsDone?: string;
+  markAsMissed?: string;
+  skippedDayNote?: string;
+  consistencyScoreLabel?: string;
+  smartConsistencyTitle?: string;
+  travelProtectionTooltip?: string;
 }
 
 export const TRANSLATIONS: Record<string, TranslationKeys> = {
@@ -98,6 +111,18 @@ export const TRANSLATIONS: Record<string, TranslationKeys> = {
     syncNow: 'Sync Now',
     exportData: 'Export Habit Data',
     logOut: 'Log Out',
+    homeFocusModeLabel: 'Focus',
+    homeListModeLabel: 'List',
+    homeMoreToday: '{count} more today',
+    homeAllDoneToday: 'All commitments completed for today',
+    calendarSkippedLabel: 'Skipped / Travel Protected',
+    markAsSkipped: 'Excused / Travel Skip',
+    markAsDone: 'Mark as Completed',
+    markAsMissed: 'Reset to Open',
+    skippedDayNote: 'Protected day (travel, illness, planned rest). Does not count against your streak.',
+    consistencyScoreLabel: 'Score',
+    smartConsistencyTitle: 'Smart Consistency Score',
+    travelProtectionTooltip: 'Long-press to excuse / travel protect',
   },
 
   // 2. Spanish

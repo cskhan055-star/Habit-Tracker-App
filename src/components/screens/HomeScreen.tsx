@@ -1,26 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useHabit } from '../../context/HabitContext';
 import { FlameIcon, getHabitIconComponent, CrownIcon } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
 import { ThemeSelectorModal } from '../common/ThemeSelectorModal';
 import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
+import { ConsistencyRing } from '../common/ConsistencyRing';
+import { DayActionSheet } from '../common/DayActionSheet';
 import { SUPPORTED_LANGUAGES } from '../../data/languages';
 import { HABIT_CATEGORIES, getCategoryById } from '../../data/categories';
 import {
   calculateHabitStats,
   getWeeklyOverview,
   isHabitScheduledOnDate,
+  getHabitDayStatus,
   parseDate,
 } from '../../utils/streakEngine';
+import { CheckInStatus } from '../../types/habit';
 
 export const HomeScreen: React.FC = () => {
   const {
     habits,
-    checkIns,
+    checkInRecords,
     currentDate,
     overallStreak,
     todayCheckInRatio,
     toggleCheckIn,
+    setCheckInStatus,
+    homeViewMode,
+    setHomeViewMode,
     setSelectedHabitId,
     setScreen,
     isPremium,
@@ -36,6 +43,11 @@ export const HomeScreen: React.FC = () => {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
 
+  // Feature 2: Action sheet for Skip / Excused day selection via long-press
+  const [actionSheetHabitId, setActionSheetHabitId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressTriggeredRef = useRef<boolean>(false);
+
   const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === locale) || SUPPORTED_LANGUAGES[0];
 
   // Filter habits by name and category
@@ -44,16 +56,16 @@ export const HomeScreen: React.FC = () => {
     const matchesCategory = !selectedCategory || habit.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-  const { weekData } = getWeeklyOverview(habits, checkIns, currentDate);
+
+  const { weekData } = getWeeklyOverview(habits, checkInRecords, currentDate);
 
   const handleCheckInClick = (e: React.MouseEvent, habitId: string) => {
     e.stopPropagation();
     setAnimatingHabitId(habitId);
-    
+
     // Check if habit is being completed (not uncompleted)
-    const habitDates = checkIns[habitId] || [];
-    const isAlreadyCompleted = habitDates.includes(currentDate);
-    if (!isAlreadyCompleted) {
+    const currentStatus = getHabitDayStatus(checkInRecords[habitId], currentDate);
+    if (currentStatus !== 'done') {
       setIsStreakShimmering(true);
       setTimeout(() => {
         setIsStreakShimmering(false);
@@ -67,9 +79,71 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleHabitRowClick = (habitId: string) => {
+    if (isLongPressTriggeredRef.current) {
+      isLongPressTriggeredRef.current = false;
+      return;
+    }
     setSelectedHabitId(habitId);
     setScreen('detail');
   };
+
+  // Long press handler for Feature 2: Skip Day
+  const handleTouchStart = (habitId: string) => {
+    isLongPressTriggeredRef.current = false;
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      setActionSheetHabitId(habitId);
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  // Feature 3 Focus Mode:
+  // Determine incomplete habits for today, ordered by earliest reminderTime, fallback to creation order
+  const todayDateObj = parseDate(currentDate);
+  const scheduledTodayHabits = habits.filter((h) => isHabitScheduledOnDate(h, todayDateObj));
+
+  const incompleteTodayHabits = scheduledTodayHabits.filter((h) => {
+    const status = getHabitDayStatus(checkInRecords[h.id], currentDate);
+    return status !== 'done' && status !== 'skipped';
+  });
+
+  // Sort incomplete by reminderTime (e.g. "06:15 AM", "10:00 AM", "8:30 PM", fallback creation order)
+  const parseReminderMinutes = (timeStr?: string): number => {
+    if (!timeStr) return 99999;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return 99999;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = (match[3] || '').toUpperCase();
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  };
+
+  const sortedIncompleteHabits = [...incompleteTodayHabits].sort((a, b) => {
+    const timeA = parseReminderMinutes(a.reminderTime);
+    const timeB = parseReminderMinutes(b.reminderTime);
+    if (timeA !== timeB) return timeA - timeB;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+
+  const nextFocusHabit = sortedIncompleteHabits[0] || scheduledTodayHabits[0] || null;
+  const remainingIncompleteCount = Math.max(0, incompleteTodayHabits.length - 1);
+
+  // Selected habit for action sheet
+  const actionHabit = habits.find((h) => h.id === actionSheetHabitId);
+  const actionHabitStatus: CheckInStatus | 'none' = actionSheetHabitId
+    ? getHabitDayStatus(checkInRecords[actionSheetHabitId], currentDate)
+    : 'none';
 
   return (
     <div className="min-h-full flex flex-col justify-between bg-[#0A0B0D] text-[#F3F0E9]">
@@ -85,8 +159,37 @@ export const HomeScreen: React.FC = () => {
             </h1>
           </div>
 
-          {/* Right actions: Language + Theme + Account + Crown */}
+          {/* Right actions: Focus/List Toggle + Language + Theme + Account + Crown */}
           <div className="flex items-center gap-2">
+            {/* Feature 3: Focus Mode Toggle Icon Button */}
+            <button
+              onClick={() => setHomeViewMode(homeViewMode === 'list' ? 'focus' : 'list')}
+              className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                homeViewMode === 'focus'
+                  ? 'bg-gold-gradient text-[#0A0B0D] border-transparent shadow-xs'
+                  : 'border-[#26282C] bg-[#15171B] text-[#9C978F] hover:text-[#E9CC8B] hover:border-[#E9CC8B]/40'
+              }`}
+              title={homeViewMode === 'focus' ? 'Switch to List View' : 'Switch to Focus Mode'}
+              aria-label={homeViewMode === 'focus' ? 'Switch to List View' : 'Switch to Focus Mode'}
+            >
+              {homeViewMode === 'focus' ? (
+                // Target / Single card focus icon
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="4" fill="currentColor" />
+                </svg>
+              ) : (
+                // Focus crosshair icon
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                  <circle cx="12" cy="12" r="7" />
+                  <line x1="12" y1="1" x2="12" y2="4" />
+                  <line x1="12" y1="20" x2="12" y2="23" />
+                  <line x1="1" y1="12" x2="4" y2="12" />
+                  <line x1="20" y1="12" x2="23" y2="12" />
+                </svg>
+              )}
+            </button>
+
             {/* Language Selector Button */}
             <button
               onClick={() => setIsLanguageModalOpen(true)}
@@ -97,6 +200,7 @@ export const HomeScreen: React.FC = () => {
               <span className="text-base select-none">{currentLang.flag}</span>
             </button>
 
+            {/* Theme Selector Button */}
             <button
               onClick={() => setIsThemeModalOpen(true)}
               className="w-10 h-10 rounded-full border border-[#26282C] bg-[#15171B] flex items-center justify-center text-[#9C978F] hover:text-[#E9CC8B] hover:border-[#E9CC8B]/40 transition-colors cursor-pointer"
@@ -155,7 +259,19 @@ export const HomeScreen: React.FC = () => {
           onClose={() => setIsLanguageModalOpen(false)}
         />
 
-        {/* Hero Streak Card */}
+        {/* Day Action Sheet for Long-press Skip / Travel protection */}
+        {actionHabit && (
+          <DayActionSheet
+            isOpen={Boolean(actionSheetHabitId)}
+            onClose={() => setActionSheetHabitId(null)}
+            habitName={actionHabit.name}
+            dateStr={currentDate}
+            currentStatus={actionHabitStatus}
+            onSetStatus={(status) => setCheckInStatus(actionHabit.id, currentDate, status)}
+          />
+        )}
+
+        {/* Hero Streak Card (EXACT SAME in both List and Focus mode) */}
         <section className="relative overflow-hidden rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-7">
           <div className="flex items-start justify-between">
             <div>
@@ -220,202 +336,402 @@ export const HomeScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* Today's Habits Section */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-[#F3F0E9] text-base font-medium tracking-tight">{t('homeTodaySection')}</h2>
-            <span className="text-[#9C978F] text-xs font-normal">
-              {t('homeTodayDone', { done: todayCheckInRatio.completed, total: todayCheckInRatio.total })}
-            </span>
-          </div>
-
-          {/* Border-less Underlined Search Bar */}
-          <div className="mb-4">
-            <div className="relative flex items-center border-b border-[#26282C] focus-within:border-[#E9CC8B] transition-colors pb-1.5 px-0.5">
-              <svg
-                className="w-4 h-4 text-[#9C978F] shrink-0 mr-2.5 transition-colors group-focus-within:text-[#E9CC8B]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('searchHabits')}
-                className="w-full bg-transparent text-xs sm:text-sm text-[#F3F0E9] placeholder-[#9C978F]/40 outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="w-6 h-6 flex items-center justify-center text-[#9C978F] hover:text-[#F3F0E9] cursor-pointer"
-                  aria-label="Clear search"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              )}
+        {/* ============================================================== */}
+        {/* FEATURE 3: FOCUS MODE VIEW vs FULL LIST VIEW                  */}
+        {/* ============================================================== */}
+        {homeViewMode === 'focus' ? (
+          <section className="mb-6 animate-in fade-in zoom-in-98 duration-200">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#E9CC8B]" />
+                <h2 className="text-[#F3F0E9] text-base font-medium tracking-tight">
+                  Focus Commitment
+                </h2>
+              </div>
+              <span className="text-[11px] text-[#9C978F] font-normal">
+                {todayCheckInRatio.completed} of {todayCheckInRatio.total} done
+              </span>
             </div>
-          </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-none">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                !selectedCategory
-                  ? 'bg-gold-gradient text-[#0A0B0D] shadow-sm font-semibold'
-                  : 'bg-[#15171B] border border-[#26282C] text-[#9C978F] hover:text-[#F3F0E9]'
-              }`}
-            >
-              {t('allCategories')}
-            </button>
-            {HABIT_CATEGORIES.map((cat) => {
-              const isCatActive = selectedCategory === cat.id;
+            {nextFocusHabit ? (() => {
+              const habit = nextFocusHabit;
+              const status = getHabitDayStatus(checkInRecords[habit.id], currentDate);
+              const isChecked = status === 'done';
+              const isSkipped = status === 'skipped';
+              const habitStats = calculateHabitStats(habit, checkInRecords, currentDate);
+              const IconComponent = getHabitIconComponent(habit.icon);
+              const categoryInfo = getCategoryById(habit.category);
+              const isAnimating = animatingHabitId === habit.id;
+
               return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(isCatActive ? null : cat.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isCatActive
-                      ? 'bg-[#1C1F24] border border-[#E9CC8B] text-[#F3F0E9] ring-1 ring-[#E9CC8B]/30'
-                      : 'bg-[#15171B] border border-[#26282C] text-[#9C978F] hover:text-[#F3F0E9]'
-                  }`}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span>{cat.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Habit List */}
-          {habits.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#26282C] p-8 text-center bg-[#15171B]/40 my-4">
-              <p className="text-[#9C978F] text-sm mb-4 leading-relaxed">
-                No habits established yet. Discipline begins with a single commitment.
-              </p>
-              <button
-                onClick={() => setScreen('add')}
-                className="px-5 py-2.5 rounded-xl bg-gold-gradient text-[#0A0B0D] font-medium text-xs tracking-wide cursor-pointer gold-btn-shadow"
-              >
-                Create your first habit
-              </button>
-            </div>
-          ) : filteredHabits.length === 0 ? (
-            <div className="rounded-2xl border border-[#26282C] p-6 text-center bg-[#15171B]/30 my-3">
-              <p className="text-xs text-[#9C978F] mb-3">
-                No habits matching filters
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory(null);
-                }}
-                className="text-xs text-[#E9CC8B] hover:underline cursor-pointer"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {filteredHabits.map((habit) => {
-                const habitDates = checkIns[habit.id] || [];
-                const isChecked = habitDates.includes(currentDate);
-                const habitStats = calculateHabitStats(habit, checkIns, currentDate);
-                const IconComponent = getHabitIconComponent(habit.icon);
-                const categoryInfo = getCategoryById(habit.category);
-                const isAnimating = animatingHabitId === habit.id;
-
-                return (
+                <div>
+                  {/* Single Large Focus Card */}
                   <div
-                    key={habit.id}
                     onClick={() => handleHabitRowClick(habit.id)}
-                    className="group relative flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90 hover:bg-[#181B20] transition-all cursor-pointer active:scale-[0.99]"
+                    onMouseDown={() => handleTouchStart(habit.id)}
+                    onMouseUp={handleTouchEnd}
+                    onTouchStart={() => handleTouchStart(habit.id)}
+                    onTouchEnd={handleTouchEnd}
+                    className="relative overflow-hidden p-6 rounded-3xl bg-[#15171B] border border-[#26282C] hover:border-[#C6A15B]/50 transition-all cursor-pointer group shadow-xl"
                   >
-                    {/* Left: Icon in rounded square */}
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#E9CC8B] shrink-0">
-                        <IconComponent size={19} strokeWidth={1.5} />
-                      </div>
-
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-[#F3F0E9] text-[15px] font-medium truncate leading-snug">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#E9CC8B] shrink-0">
+                          <IconComponent size={26} strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: categoryInfo.color }}
+                            />
+                            <span className="text-xs uppercase tracking-wider text-[#9C978F]">
+                              {categoryInfo.label}
+                            </span>
+                          </div>
+                          <h3 className="text-[#F3F0E9] font-serif text-xl sm:text-2xl font-normal mt-0.5 leading-snug">
                             {habit.name}
                           </h3>
-                          {/* Color-coded Category Dot Indicator */}
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0 shadow-xs"
-                            style={{ backgroundColor: categoryInfo.color }}
-                            title={`Category: ${categoryInfo.label}`}
-                          />
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-[#9C978F] mt-0.5">
-                          <span className="capitalize">{habit.frequency}</span>
-                          <span className="text-[#9C978F]/60">·</span>
-                          <span className="truncate">{habit.timeOfDay}</span>
-                          <span className="text-[#9C978F]/60">·</span>
-                          <span className="text-[11px] font-medium" style={{ color: categoryInfo.color }}>
-                            {categoryInfo.label}
-                          </span>
-                        </div>
+                      </div>
+
+                      {/* Top Right Consistency Score Ring & Streak */}
+                      <div className="flex flex-col items-end gap-1">
+                        <ConsistencyRing score={habitStats.consistencyScore} size={36} strokeWidth={3.5} />
+                        <span className="text-[10px] text-[#9C978F] font-mono tracking-tighter">
+                          Score
+                        </span>
                       </div>
                     </div>
 
-                    {/* Right: Streak Flame + Circular Check-in Ring */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      {/* Habit streak count */}
-                      <div className="flex items-center gap-1 text-[#9C978F] text-xs">
-                        <FlameIcon
-                          size={13}
-                          strokeWidth={1.6}
-                          className={habitStats.currentStreak > 0 ? 'text-[#E9CC8B]' : 'text-[#9C978F]/60'}
-                        />
-                        <span className="tabular-nums font-medium text-[13px]">
-                          {habitStats.currentStreak}
+                    {/* Middle Details */}
+                    <div className="mt-5 pt-4 border-t border-[#26282C]/60 flex items-center justify-between text-xs text-[#9C978F]">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                          <FlameIcon size={14} className="text-[#E9CC8B]" />
+                          <strong className="text-[#F3F0E9] font-medium">{habitStats.currentStreak}</strong> days
                         </span>
+                        <span>·</span>
+                        <span>{habit.reminderTime || habit.timeOfDay}</span>
                       </div>
 
-                      {/* Circular Check-in Ring Touch Target >= 44x44px */}
+                      {isSkipped && (
+                        <span className="px-2 py-0.5 rounded-full skipped-diagonal-pattern border text-[10px] text-[#E9CC8B] font-medium">
+                          Excused Today
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bottom Big Action Touch Target */}
+                    <div className="mt-5 flex items-center gap-3">
                       <button
+                        type="button"
                         onClick={(e) => handleCheckInClick(e, habit.id)}
-                        className="w-11 h-11 flex items-center justify-center cursor-pointer -mr-1"
-                        aria-label={`Mark ${habit.name} as ${isChecked ? 'incomplete' : 'completed'}`}
+                        className={`flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 font-medium text-sm transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-gold-gradient text-[#0A0B0D] shadow-sm font-semibold'
+                            : isSkipped
+                            ? 'skipped-diagonal-pattern border text-[#E9CC8B]'
+                            : 'bg-[#1C1F24] border border-[#26282C] text-[#F3F0E9] hover:border-[#E9CC8B]/50'
+                        } ${isAnimating && isChecked ? 'animate-scale-pulse' : ''}`}
                       >
-                        <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors duration-200 ${
-                            isChecked
-                              ? 'bg-gold-gradient text-[#0A0B0D] shadow-sm'
-                              : 'border border-[#26282C] bg-transparent text-transparent hover:border-[#E9CC8B]/50'
-                          } ${isAnimating && isChecked ? 'animate-scale-pulse' : ''}`}
-                        >
-                          {isChecked && (
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="#0A0B0D" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                        {isChecked ? (
+                          <>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
-                          )}
-                        </div>
+                            <span>Completed Today</span>
+                          </>
+                        ) : isSkipped ? (
+                          <span>Excused (Travel Protected)</span>
+                        ) : (
+                          <>
+                            <div className="w-5 h-5 rounded-full border border-[#9C978F]/60" />
+                            <span>Mark as Complete</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionSheetHabitId(habit.id);
+                        }}
+                        className="w-12 h-12 rounded-2xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#9C978F] hover:text-[#E9CC8B] transition-colors cursor-pointer"
+                        title="Mark as skipped / travel protected"
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
                       </button>
                     </div>
                   </div>
+
+                  {/* Below card hint: "X more today", tappable to expand back to List view */}
+                  <div className="mt-4 text-center">
+                    {remainingIncompleteCount > 0 ? (
+                      <button
+                        onClick={() => setHomeViewMode('list')}
+                        className="inline-flex items-center gap-1.5 py-2 px-4 rounded-full bg-[#15171B] border border-[#26282C] text-xs text-[#9C978F] hover:text-[#E9CC8B] hover:border-[#E9CC8B]/40 transition-colors cursor-pointer"
+                      >
+                        <span>
+                          {t('homeMoreToday', { count: remainingIncompleteCount })}
+                        </span>
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <p className="text-xs text-[#9C978F] py-2">
+                        {t('homeAllDoneToday')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })() : (
+              <div className="rounded-3xl border border-[#26282C] p-8 text-center bg-[#15171B]">
+                <p className="text-[#9C978F] text-sm">
+                  {t('homeAllDoneToday')}
+                </p>
+                <button
+                  onClick={() => setHomeViewMode('list')}
+                  className="mt-3 text-xs text-[#E9CC8B] hover:underline cursor-pointer"
+                >
+                  View full list
+                </button>
+              </div>
+            )}
+          </section>
+        ) : (
+          /* ============================================================== */
+          /* STANDARD FULL LIST VIEW                                       */
+          /* ============================================================== */
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-[#F3F0E9] text-base font-medium tracking-tight">
+                {t('homeTodaySection')}
+              </h2>
+              <span className="text-[#9C978F] text-xs font-normal">
+                {t('homeTodayDone', { done: todayCheckInRatio.completed, total: todayCheckInRatio.total })}
+              </span>
+            </div>
+
+            {/* Search Input Box */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#15171B] border border-[#26282C] focus-within:border-[#C6A15B] transition-colors">
+                <svg
+                  className="w-4 h-4 text-[#9C978F]/60 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('searchHabits')}
+                  className="w-full bg-transparent text-xs sm:text-sm text-[#F3F0E9] placeholder-[#9C978F]/40 outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-[#9C978F] hover:text-[#F3F0E9] text-xs px-1"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-none">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  !selectedCategory
+                    ? 'bg-gold-gradient text-[#0A0B0D] shadow-sm font-semibold'
+                    : 'bg-[#15171B] border border-[#26282C] text-[#9C978F] hover:text-[#F3F0E9]'
+                }`}
+              >
+                {t('allCategories')}
+              </button>
+              {HABIT_CATEGORIES.map((cat) => {
+                const isCatActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(isCatActive ? null : cat.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isCatActive
+                        ? 'bg-[#1C1F24] border border-[#E9CC8B] text-[#F3F0E9] ring-1 ring-[#E9CC8B]/30'
+                        : 'bg-[#15171B] border border-[#26282C] text-[#9C978F] hover:text-[#F3F0E9]'
+                    }`}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span>{cat.label}</span>
+                  </button>
                 );
               })}
             </div>
-          )}
-        </section>
+
+            {/* Habit List */}
+            {habits.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#26282C] p-8 text-center bg-[#15171B]/40 my-4">
+                <p className="text-[#9C978F] text-sm mb-4 leading-relaxed">
+                  No habits established yet. Discipline begins with a single commitment.
+                </p>
+                <button
+                  onClick={() => setScreen('add')}
+                  className="px-5 py-2.5 rounded-xl bg-gold-gradient text-[#0A0B0D] font-medium text-xs tracking-wide cursor-pointer gold-btn-shadow"
+                >
+                  Create your first habit
+                </button>
+              </div>
+            ) : filteredHabits.length === 0 ? (
+              <div className="rounded-2xl border border-[#26282C] p-6 text-center bg-[#15171B]/30 my-3">
+                <p className="text-xs text-[#9C978F] mb-3">
+                  No habits matching filters
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory(null);
+                  }}
+                  className="text-xs text-[#E9CC8B] hover:underline cursor-pointer"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {filteredHabits.map((habit) => {
+                  const status = getHabitDayStatus(checkInRecords[habit.id], currentDate);
+                  const isChecked = status === 'done';
+                  const isSkipped = status === 'skipped';
+                  const habitStats = calculateHabitStats(habit, checkInRecords, currentDate);
+                  const IconComponent = getHabitIconComponent(habit.icon);
+                  const categoryInfo = getCategoryById(habit.category);
+                  const isAnimating = animatingHabitId === habit.id;
+
+                  return (
+                    <div
+                      key={habit.id}
+                      onClick={() => handleHabitRowClick(habit.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setActionSheetHabitId(habit.id);
+                      }}
+                      onMouseDown={() => handleTouchStart(habit.id)}
+                      onMouseUp={handleTouchEnd}
+                      onMouseLeave={handleTouchEnd}
+                      onTouchStart={() => handleTouchStart(habit.id)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchEnd}
+                      className="group relative flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90 hover:bg-[#181B20] transition-all cursor-pointer active:scale-[0.99]"
+                    >
+                      {/* Left: Icon in rounded square */}
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#E9CC8B] shrink-0">
+                          <IconComponent size={19} strokeWidth={1.5} />
+                        </div>
+
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-[#F3F0E9] text-[15px] font-medium truncate leading-snug">
+                              {habit.name}
+                            </h3>
+                            {/* Color-coded Category Dot Indicator */}
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0 shadow-xs"
+                              style={{ backgroundColor: categoryInfo.color }}
+                              title={`Category: ${categoryInfo.label}`}
+                            />
+                            {/* Skipped Badge if protected today */}
+                            {isSkipped && (
+                              <span className="px-1.5 py-0.5 text-[9px] rounded-md skipped-diagonal-pattern border text-[#E9CC8B] font-medium leading-none">
+                                Excused
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-[#9C978F] mt-0.5">
+                            <span className="capitalize">{habit.frequency}</span>
+                            <span className="text-[#9C978F]/60">·</span>
+                            <span className="truncate">{habit.timeOfDay}</span>
+                            <span className="text-[#9C978F]/60">·</span>
+                            <span className="text-[11px] font-medium" style={{ color: categoryInfo.color }}>
+                              {categoryInfo.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Dual-Metric System (Streak + Consistency Ring) + Circular Check-in Ring */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        {/* FEATURE 1: Dual-Metric Display */}
+                        <div className="flex items-center gap-2 text-right">
+                          {/* 1. Raw emotional current streak */}
+                          <div className="flex items-center gap-1 text-[#9C978F] text-xs">
+                            <FlameIcon
+                              size={13}
+                              strokeWidth={1.6}
+                              className={habitStats.currentStreak > 0 ? 'text-[#E9CC8B]' : 'text-[#9C978F]/60'}
+                            />
+                            <span className="tabular-nums font-medium text-[13px]">
+                              {habitStats.currentStreak}
+                            </span>
+                          </div>
+
+                          {/* 2. Secondary Consistency Score Ring */}
+                          <div className="hidden sm:block">
+                            <ConsistencyRing score={habitStats.consistencyScore} size={28} strokeWidth={3} />
+                          </div>
+                        </div>
+
+                        {/* Circular Check-in Ring Touch Target >= 44x44px */}
+                        <button
+                          onClick={(e) => handleCheckInClick(e, habit.id)}
+                          className="w-11 h-11 flex items-center justify-center cursor-pointer -mr-1"
+                          aria-label={`Mark ${habit.name} as ${isChecked ? 'incomplete' : 'completed'}`}
+                          title={isSkipped ? 'Excused day (long-press to change)' : 'Tap to complete, long-press to excuse'}
+                        >
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+                              isChecked
+                                ? 'bg-gold-gradient text-[#0A0B0D] shadow-sm'
+                                : isSkipped
+                                ? 'skipped-diagonal-pattern border'
+                                : 'border border-[#26282C] bg-transparent text-transparent hover:border-[#E9CC8B]/50'
+                            } ${isAnimating && isChecked ? 'animate-scale-pulse' : ''}`}
+                          >
+                            {isChecked && (
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="#0A0B0D" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                            {isSkipped && (
+                              <svg className="w-3 h-3 text-[#E9CC8B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {/* Bottom Navigation */}

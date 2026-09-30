@@ -1,32 +1,33 @@
 import React from 'react';
 import { useHabit } from '../../context/HabitContext';
 import { BottomNav } from '../common/BottomNav';
+import { ConsistencyRing } from '../common/ConsistencyRing';
 import {
   calculateHabitStats,
   getWeeklyOverview,
-  isHabitScheduledOnDate,
 } from '../../utils/streakEngine';
 import { CrownIcon } from '../common/Icons';
 
 export const StatsScreen: React.FC = () => {
   const {
     habits,
-    checkIns,
+    checkInRecords,
     currentDate,
     overallStreak,
     setScreen,
     setSelectedHabitId,
     isPremium,
+    t,
   } = useHabit();
 
-  const { weekData, weeklyPercentage } = getWeeklyOverview(habits, checkIns, currentDate);
+  const { weekData, weeklyPercentage } = getWeeklyOverview(habits, checkInRecords, currentDate);
 
   // Compute aggregated stats
   let totalAllCheckIns = 0;
   let bestStreakOverall = overallStreak;
 
   const habitBreakdowns = habits.map((habit) => {
-    const stats = calculateHabitStats(habit, checkIns, currentDate);
+    const stats = calculateHabitStats(habit, checkInRecords, currentDate);
     totalAllCheckIns += stats.totalCheckIns;
     if (stats.longestStreak > bestStreakOverall) {
       bestStreakOverall = stats.longestStreak;
@@ -37,8 +38,8 @@ export const StatsScreen: React.FC = () => {
     };
   });
 
-  // Sort by consistency % descending
-  habitBreakdowns.sort((a, b) => b.stats.consistency - a.stats.consistency);
+  // Sort by consistency score descending
+  habitBreakdowns.sort((a, b) => b.stats.consistencyScore - a.stats.consistencyScore);
 
   // Fallback to match 612 from Figma if fewer habits
   const displayTotalCheckIns = Math.max(totalAllCheckIns, 612);
@@ -55,7 +56,7 @@ export const StatsScreen: React.FC = () => {
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <h1 className="font-serif text-2xl font-normal text-[#F3F0E9] tracking-tight">
-            Your Progress
+            {t('statsTitle')}
           </h1>
 
           <button
@@ -98,91 +99,95 @@ export const StatsScreen: React.FC = () => {
                 fill="none"
                 stroke="url(#statsGoldGrad)"
                 strokeWidth="10"
-                strokeLinecap="round"
                 strokeDasharray={strokeCircumference}
                 strokeDashoffset={strokeOffset}
-                className="transition-all duration-1000 ease-out"
+                strokeLinecap="round"
+                className="transition-all duration-700 ease-out"
               />
             </svg>
 
-            {/* Inner text */}
+            {/* Inner Ring Text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="font-serif text-4xl font-normal text-gold-gradient tracking-tight">
+              <span className="font-serif text-4xl font-normal text-[#F3F0E9] tracking-tight">
                 {weeklyPercentage}%
               </span>
-              <span className="text-[11px] text-[#9C978F] font-normal mt-0.5">
-                this week
+              <span className="text-[11px] text-[#9C978F] font-normal tracking-wide mt-0.5">
+                {t('statsThisWeek')}
               </span>
             </div>
           </div>
         </section>
 
-        {/* Three Compact Secondary Stat Cards */}
-        <section className="grid grid-cols-3 gap-2.5 mb-7">
-          <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-3 text-center">
-            <span className="font-serif text-2xl font-normal text-[#F3F0E9] block tracking-tight">
+        {/* 3 Overview Stat Cards (Check-ins, Active habits, Best streak) */}
+        <section className="grid grid-cols-3 gap-3 mb-6">
+          <div className="p-3.5 rounded-2xl bg-[#15171B] border border-[#26282C] text-center">
+            <span className="font-serif text-2xl font-normal text-[#F3F0E9] block leading-tight">
               {displayTotalCheckIns}
             </span>
-            <span className="text-[10px] text-[#9C978F] leading-tight block mt-1">
-              Total check-ins
+            <span className="text-[10px] text-[#9C978F] font-normal mt-1 block">
+              {t('statsTotalCheckins')}
             </span>
           </div>
 
-          <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-3 text-center">
-            <span className="font-serif text-2xl font-normal text-[#F3F0E9] block tracking-tight">
+          <div className="p-3.5 rounded-2xl bg-[#15171B] border border-[#26282C] text-center">
+            <span className="font-serif text-2xl font-normal text-[#F3F0E9] block leading-tight">
               {habits.length}
             </span>
-            <span className="text-[10px] text-[#9C978F] leading-tight block mt-1">
-              Active habits
+            <span className="text-[10px] text-[#9C978F] font-normal mt-1 block">
+              {t('statsActiveHabits')}
             </span>
           </div>
 
-          <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-3 text-center">
-            <span className="font-serif text-2xl font-normal text-gold-gradient block tracking-tight">
-              {displayBestStreak}d
+          <div className="p-3.5 rounded-2xl bg-[#15171B] border border-[#26282C] text-center">
+            <span className="font-serif text-2xl font-normal text-gold-gradient block leading-tight">
+              {displayBestStreak}
             </span>
-            <span className="text-[10px] text-[#9C978F] leading-tight block mt-1">
-              Best streak
+            <span className="text-[10px] text-[#9C978F] font-normal mt-1 block">
+              {t('statsBestStreak')}
             </span>
           </div>
         </section>
 
-        {/* 7-Day Bar Chart ("This week") */}
-        <section className="rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-7">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-normal text-[#9C978F] tracking-wide">This week</h2>
-            <span className="text-[11px] text-[#E9CC8B]">Mon – Sun</span>
+        {/* 7-Day Vertical Bar Chart */}
+        <section className="rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-6">
+          <div className="flex items-center justify-between mb-5">
+            <span className="text-xs font-normal text-[#9C978F] tracking-wide">
+              Weekly Activity
+            </span>
+            <span className="text-xs text-[#E9CC8B] font-medium">
+              Mon — Sun
+            </span>
           </div>
 
-          <div className="flex items-end justify-between h-28 gap-2 pt-2 pb-1">
-            {weekData.map((d, index) => {
-              // Bar height based on completion rate (capped at 100%)
-              const heightPercent = d.isFuture
-                ? 10
-                : Math.max(14, Math.round(d.completionRate * 100));
+          <div className="flex items-end justify-between gap-2 h-28 pt-2 px-1">
+            {weekData.map((day, idx) => {
+              const heightPct = Math.round(day.completionRate * 100);
+              const isDone = heightPct === 100;
+              const hasActivity = heightPct > 0;
 
               return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-full flex justify-center items-end flex-1">
+                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                  {/* Vertical bar column */}
+                  <div className="w-full max-w-[28px] h-20 bg-[#1C1F24] rounded-lg overflow-hidden flex flex-col justify-end p-0.5">
                     <div
-                      style={{ height: `${heightPercent}%` }}
-                      className={`w-3.5 sm:w-4 rounded-md transition-all duration-500 ${
-                        d.isToday
+                      style={{ height: `${heightPct}%` }}
+                      className={`w-full rounded-md transition-all duration-500 ${
+                        isDone
                           ? 'bg-gold-gradient'
-                          : d.isFuture
-                          ? 'bg-[#1C1F24] border border-[#26282C]'
-                          : d.completedHabits > 0
-                          ? 'bg-[#C6A15B]/80'
-                          : 'bg-[#1C1F24]'
+                          : hasActivity
+                          ? 'bg-[#C6A15B]/70'
+                          : 'bg-transparent'
                       }`}
                     />
                   </div>
+
+                  {/* Day Label */}
                   <span
                     className={`text-[10px] font-medium ${
-                      d.isToday ? 'text-[#E9CC8B]' : 'text-[#9C978F]/70'
+                      day.isToday ? 'text-[#E9CC8B] font-semibold' : 'text-[#9C978F]'
                     }`}
                   >
-                    {d.label}
+                    {day.label}
                   </span>
                 </div>
               );
@@ -190,11 +195,14 @@ export const StatsScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* Per-Habit Completion Bars ("By habit") */}
+        {/* Per-Habit Completion Bars ("By habit") with Consistency Score & Rate */}
         <section className="rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-6">
-          <h2 className="text-xs font-normal text-[#9C978F] tracking-wide mb-4">
-            By habit
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-normal text-[#9C978F] tracking-wide">
+              By habit (Smart Consistency)
+            </h2>
+            <span className="text-[11px] text-[#9C978F]">Score · Rate</span>
+          </div>
 
           <div className="space-y-4">
             {habitBreakdowns.map(({ habit, stats }) => (
@@ -207,18 +215,24 @@ export const StatsScreen: React.FC = () => {
                 className="group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#F3F0E9] font-medium group-hover:text-[#E9CC8B] transition-colors truncate max-w-[200px]">
+                  <span className="text-[#F3F0E9] font-medium group-hover:text-[#E9CC8B] transition-colors truncate max-w-[190px]">
                     {habit.name}
                   </span>
-                  <span className="text-[#9C978F] tabular-nums font-normal">
-                    {stats.consistency}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <ConsistencyRing score={stats.consistencyScore} size={20} strokeWidth={2.5} showPercentage={false} />
+                    <span className="text-[#E9CC8B] font-mono text-[11px]">
+                      {stats.consistencyScore}%
+                    </span>
+                    <span className="text-[#9C978F]/60 text-[10px]">
+                      ({stats.consistency}%)
+                    </span>
+                  </div>
                 </div>
 
-                {/* Thin horizontal gold progress bar */}
+                {/* Thin horizontal gold progress bar based on consistency score */}
                 <div className="h-1.5 w-full bg-[#1C1F24] rounded-full overflow-hidden">
                   <div
-                    style={{ width: `${stats.consistency}%` }}
+                    style={{ width: `${stats.consistencyScore}%` }}
                     className="h-full bg-gold-gradient rounded-full transition-all duration-500"
                   />
                 </div>

@@ -40,5 +40,20 @@
   "navHome": "Home",
   "navStats": "Stats",
   "navLog": "Log",
-  "navSettings": "Settings"
+  "navSettings": "Settings",
+  "homeFocusModeLabel": "Focus Mode",
+  "homeListModeLabel": "List View",
+  "homeMoreToday": "{count} more today",
+  "@homeMoreToday": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "homeAllDoneToday": "All commitments completed for today",
+  "calendarSkippedLabel": "Skipped / Excused",
+  "markAsSkipped": "Mark as skipped",
+  "markAsDone": "Mark as completed",
+  "markAsMissed": "Reset to uncompleted",
+  "consistencyScoreLabel": "Consistency Score",
+  "skippedDayNote": "Excused travel or rest day — protected from streak resets"
 }

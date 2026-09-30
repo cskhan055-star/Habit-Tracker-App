@@ -1,9 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Habit, CheckInMap, HabitReflectionMap, ScreenId, LuxuryTheme, UserAccount } from '../types/habit';
+import {
+  Habit,
+  CheckInMap,
+  CheckInStatus,
+  CheckInRecordMap,
+  HabitReflectionMap,
+  ScreenId,
+  LuxuryTheme,
+  UserAccount,
+} from '../types/habit';
 import { INITIAL_HABITS, generateInitialCheckIns, generateInitialReflections } from '../data/initialData';
 import {
   DEFAULT_CURRENT_DATE,
   calculateOverallStreak,
+  getHabitDayStatus,
   isHabitScheduledOnDate,
   parseDate,
 } from '../utils/streakEngine';
@@ -11,9 +21,12 @@ import { triggerCheckInHaptic } from '../utils/haptics';
 import { isLanguageRTL } from '../data/languages';
 import { getTranslation, TranslationKeys } from '../data/translations';
 
+export type HomeViewMode = 'list' | 'focus';
+
 interface HabitContextType {
   habits: Habit[];
-  checkIns: CheckInMap;
+  checkIns: CheckInMap; // provides date lists or status records
+  checkInRecords: CheckInRecordMap; // normalized { habitId: { dateStr: 'done' | 'skipped' | 'missed' } }
   reflections: HabitReflectionMap;
   activeScreen: ScreenId;
   selectedHabitId: string | null;
@@ -28,7 +41,10 @@ interface HabitContextType {
   currentDate: string;
   overallStreak: number;
   todayCheckInRatio: { completed: number; total: number };
+  homeViewMode: HomeViewMode;
+  setHomeViewMode: (mode: HomeViewMode) => void;
   toggleCheckIn: (habitId: string, dateStr?: string) => void;
+  setCheckInStatus: (habitId: string, dateStr: string, status: CheckInStatus | 'none') => void;
   saveReflection: (habitId: string, dateStr: string, note: string) => void;
   deleteReflection: (habitId: string, dateStr: string) => void;
   addHabit: (habitData: Omit<Habit, 'id' | 'createdAt'>) => string;
@@ -51,11 +67,13 @@ const HabitContext = createContext<HabitContextType | null>(null);
 
 const STORAGE_KEY_HABITS = 'aurum_habits_v1';
 const STORAGE_KEY_CHECKINS = 'aurum_checkins_v1';
+const STORAGE_KEY_CHECKIN_RECORDS = 'aurum_checkin_records_v1';
 const STORAGE_KEY_REFLECTIONS = 'aurum_reflections_v1';
 const STORAGE_KEY_THEME = 'aurum_theme_v1';
 const STORAGE_KEY_PREMIUM = 'aurum_premium_v1';
 const STORAGE_KEY_USER = 'aurum_user_v1';
 const STORAGE_KEY_LOCALE = 'aurum_locale_v1';
+const STORAGE_KEY_HOME_VIEW_MODE = 'aurum_home_view_mode_v1';
 
 const DEFAULT_USER: UserAccount = {
   isLoggedIn: true,
@@ -64,7 +82,7 @@ const DEFAULT_USER: UserAccount = {
   memberSince: 'September 2026',
   plan: 'lifetime',
   cloudSyncEnabled: true,
-  lastSyncedAt: 'Just now',
+  lastSyncedAt: 'Today at 09:40 AM',
 };
 
 export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -118,15 +136,57 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_HABITS;
   });
 
-  const [checkIns, setCheckIns] = useState<CheckInMap>(() => {
+  // Feature 3: Home view mode persisted preference (List vs Focus view)
+  const [homeViewMode, setHomeViewModeState] = useState<HomeViewMode>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_CHECKINS);
+      const saved = localStorage.getItem(STORAGE_KEY_HOME_VIEW_MODE) as HomeViewMode;
+      if (saved === 'list' || saved === 'focus') return saved;
+    } catch {
+      // ignore
+    }
+    return 'list';
+  });
+
+  const setHomeViewMode = (mode: HomeViewMode) => {
+    setHomeViewModeState(mode);
+    try {
+      localStorage.setItem(STORAGE_KEY_HOME_VIEW_MODE, mode);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Feature 2: Support rich check-in status (done | missed | skipped)
+  const [checkInRecords, setCheckInRecords] = useState<CheckInRecordMap>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CHECKIN_RECORDS);
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
     }
-    return generateInitialCheckIns();
+
+    // Build from initial check-ins (legacy array format -> records format)
+    const initialArrays = generateInitialCheckIns();
+    const result: CheckInRecordMap = {};
+    Object.entries(initialArrays).forEach(([hId, dates]) => {
+      result[hId] = {};
+      dates.forEach((d) => {
+        result[hId][d] = 'done';
+      });
+    });
+    return result;
   });
+
+  // Derive legacy checkIns map for full backwards compatibility
+  const checkIns: CheckInMap = React.useMemo(() => {
+    const map: CheckInMap = {};
+    Object.entries(checkInRecords).forEach(([hId, recs]) => {
+      map[hId] = Object.entries(recs)
+        .filter(([, status]) => status === 'done')
+        .map(([date]) => date);
+    });
+    return map;
+  }, [checkInRecords]);
 
   const [reflections, setReflections] = useState<HabitReflectionMap>(() => {
     try {
@@ -148,7 +208,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved === 'obsidian' || saved === 'antique-gold' || saved === 'ivory-marble') {
         return saved;
       }
-      // Migration from previous boolean/string
       if (saved === ('light' as unknown)) return 'ivory-marble';
       if (saved === ('dark' as unknown)) return 'obsidian';
     } catch {
@@ -180,11 +239,12 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     try {
+      localStorage.setItem(STORAGE_KEY_CHECKIN_RECORDS, JSON.stringify(checkInRecords));
       localStorage.setItem(STORAGE_KEY_CHECKINS, JSON.stringify(checkIns));
     } catch {
       // ignore
     }
-  }, [checkIns]);
+  }, [checkInRecords, checkIns]);
 
   useEffect(() => {
     try {
@@ -259,23 +319,44 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  const toggleCheckIn = (habitId: string, dateStr: string = currentDate) => {
-    setCheckIns((prev) => {
-      const currentList = prev[habitId] || [];
-      const alreadyChecked = currentList.includes(dateStr);
-      let updatedList: string[];
-      if (alreadyChecked) {
-        updatedList = currentList.filter((d) => d !== dateStr);
+  /**
+   * Set specific status for a habit on a date: 'done' | 'skipped' | 'missed' | 'none'
+   */
+  const setCheckInStatus = (habitId: string, dateStr: string, status: CheckInStatus | 'none') => {
+    setCheckInRecords((prev) => {
+      const habitRecs = { ...(prev[habitId] || {}) };
+      if (status === 'none') {
+        delete habitRecs[dateStr];
       } else {
-        updatedList = [...currentList, dateStr];
+        habitRecs[dateStr] = status;
+      }
+      return {
+        ...prev,
+        [habitId]: habitRecs,
+      };
+    });
+  };
+
+  /**
+   * Toggle completion status between 'done' and uncompleted (none)
+   */
+  const toggleCheckIn = (habitId: string, dateStr: string = currentDate) => {
+    setCheckInRecords((prev) => {
+      const habitRecs = { ...(prev[habitId] || {}) };
+      const currentStatus = habitRecs[dateStr];
+      const isCheckingIn = currentStatus !== 'done';
+
+      if (isCheckingIn) {
+        habitRecs[dateStr] = 'done';
+      } else {
+        delete habitRecs[dateStr];
       }
 
-      const nextCheckIns = {
+      const nextRecords = {
         ...prev,
-        [habitId]: updatedList,
+        [habitId]: habitRecs,
       };
 
-      const isCheckingIn = !alreadyChecked;
       let isDayComplete = false;
       if (isCheckingIn) {
         const dateObj = parseDate(dateStr);
@@ -283,15 +364,15 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isDayComplete =
           scheduledHabits.length > 0 &&
           scheduledHabits.every((h) => {
-            const list = h.id === habitId ? updatedList : nextCheckIns[h.id] || [];
-            return list.includes(dateStr);
+            const st = getHabitDayStatus(nextRecords[h.id], dateStr);
+            return st === 'done' || st === 'skipped';
           });
       }
 
-      // Fire subtle luxury tactile haptic feedback
+      // Luxury tactile haptic feedback
       triggerCheckInHaptic(isCheckingIn, isDayComplete);
 
-      return nextCheckIns;
+      return nextRecords;
     });
   };
 
@@ -327,9 +408,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: currentDate,
     };
     setHabits((prev) => [...prev, newHabit]);
-    setCheckIns((prev) => ({
+    setCheckInRecords((prev) => ({
       ...prev,
-      [newId]: [],
+      [newId]: {},
     }));
     return newId;
   };
@@ -342,7 +423,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteHabit = (id: string) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
-    setCheckIns((prev) => {
+    setCheckInRecords((prev) => {
       const copy = { ...prev };
       delete copy[id];
       return copy;
@@ -362,21 +443,31 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const resetToDefaults = () => {
     setHabits(INITIAL_HABITS);
-    setCheckIns(generateInitialCheckIns());
+    const initialArrays = generateInitialCheckIns();
+    const result: CheckInRecordMap = {};
+    Object.entries(initialArrays).forEach(([hId, dates]) => {
+      result[hId] = {};
+      dates.forEach((d) => {
+        result[hId][d] = 'done';
+      });
+    });
+    setCheckInRecords(result);
     setReflections(generateInitialReflections());
     setSelectedHabitId('habit-2');
     setTheme('obsidian');
+    setHomeViewMode('list');
     setIsPremium(false);
   };
 
-  // Derived calculations
-  const overallStreak = calculateOverallStreak(habits, checkIns, currentDate);
+  // Derived calculations with skip day support
+  const overallStreak = calculateOverallStreak(habits, checkInRecords, currentDate);
 
   const todayObj = parseDate(currentDate);
   const scheduledToday = habits.filter((h) => isHabitScheduledOnDate(h, todayObj));
-  const completedToday = scheduledToday.filter((h) =>
-    (checkIns[h.id] || []).includes(currentDate)
-  ).length;
+  const completedToday = scheduledToday.filter((h) => {
+    const status = getHabitDayStatus(checkInRecords[h.id], currentDate);
+    return status === 'done';
+  }).length;
 
   const todayCheckInRatio = {
     completed: completedToday,
@@ -388,6 +479,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       value={{
         habits,
         checkIns,
+        checkInRecords,
         reflections,
         activeScreen,
         selectedHabitId,
@@ -402,7 +494,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentDate,
         overallStreak,
         todayCheckInRatio,
+        homeViewMode,
+        setHomeViewMode,
         toggleCheckIn,
+        setCheckInStatus,
         saveReflection,
         deleteReflection,
         addHabit,

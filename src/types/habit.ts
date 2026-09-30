@@ -45,13 +45,23 @@ export interface ThemePreset {
   textHex: string;
 }
 
-export type CheckInMap = Record<string, string[]>; // habitId -> Array of 'YYYY-MM-DD' strings
+export type CheckInStatus = 'done' | 'missed' | 'skipped';
+
+export interface CheckInEntry {
+  status: CheckInStatus;
+  dateStr: string;
+}
+
+// Map habitId -> { 'YYYY-MM-DD': 'done' | 'skipped' | 'missed' } or legacy Array of dates
+export type CheckInRecordMap = Record<string, Record<string, CheckInStatus>>;
+export type CheckInMap = Record<string, string[]>; // backward-compatible alias / helper
 
 export type HabitReflectionMap = Record<string, Record<string, string>>; // habitId -> dateStr -> note text
 
 export interface HabitStats {
   currentStreak: number;
   longestStreak: number;
-  consistency: number;
+  consistency: number; // percentage (0-100) excluding skipped days
+  consistencyScore: number; // exponential moving average score (0-100%)
   totalCheckIns: number;
 }

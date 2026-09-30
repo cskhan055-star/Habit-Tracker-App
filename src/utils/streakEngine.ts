@@ -1,4 +1,4 @@
-import { Habit, CheckInMap, HabitStats } from '../types/habit';
+import { Habit, CheckInStatus, HabitStats } from '../types/habit';
 
 // Current reference date is September 24, 2026 (matches design spec "Thursday, 24 September")
 export const DEFAULT_CURRENT_DATE = '2026-09-24';
@@ -29,7 +29,7 @@ export function isHabitScheduledOnDate(habit: Habit, date: Date): boolean {
     return true;
   }
   if (habit.frequency === 'weekly') {
-    // Scheduled once per week, default to Mondays or check-in days
+    // Scheduled once per week, default to Monday
     return true;
   }
   if (habit.frequency === 'custom' && habit.customDays && habit.customDays.length > 0) {
@@ -40,28 +40,69 @@ export function isHabitScheduledOnDate(habit: Habit, date: Date): boolean {
 }
 
 /**
- * Computes individual habit statistics (Current streak, Longest streak, Consistency %, Total check-ins)
+ * Normalizes checkIns lookup for backward compatibility and feature 2 (status: done | skipped | missed).
+ * Accepts either:
+ * - string[] (legacy list of completed date strings)
+ * - Record<string, CheckInStatus> (e.g. { '2026-09-24': 'done', '2026-09-23': 'skipped' })
+ */
+export function getHabitDayStatus(
+  habitCheckIns: string[] | Record<string, CheckInStatus> | undefined,
+  dateStr: string
+): CheckInStatus | 'none' {
+  if (!habitCheckIns) return 'none';
+  if (Array.isArray(habitCheckIns)) {
+    return habitCheckIns.includes(dateStr) ? 'done' : 'none';
+  }
+  return habitCheckIns[dateStr] || 'none';
+}
+
+/**
+ * Checks if habit is completed on a date
+ */
+export function isHabitDoneOnDate(
+  habitCheckIns: string[] | Record<string, CheckInStatus> | undefined,
+  dateStr: string
+): boolean {
+  return getHabitDayStatus(habitCheckIns, dateStr) === 'done';
+}
+
+/**
+ * Checks if habit is marked skipped / travel protected on a date
+ */
+export function isHabitSkippedOnDate(
+  habitCheckIns: string[] | Record<string, CheckInStatus> | undefined,
+  dateStr: string
+): boolean {
+  return getHabitDayStatus(habitCheckIns, dateStr) === 'skipped';
+}
+
+/**
+ * Computes individual habit statistics:
+ * 1. Current Streak: Consecutive completed days. Skipped days do NOT break streak (streak continues through them).
+ * 2. Longest Streak: Highest consecutive run of scheduled days completed (skipped days bridged).
+ * 3. Consistency %: Total completed / Total valid scheduled days (skipped days excluded from denominator).
+ * 4. Smart Consistency Score: Exponential moving average:
+ *    score_today = alpha * completion_today + (1 - alpha) * score_yesterday (alpha = 0.2).
+ *    Skipped days are completely excluded from the EMA calculation (not treated as 0 or 1).
  */
 export function calculateHabitStats(
   habit: Habit,
-  checkIns: CheckInMap,
-  todayStr: string = DEFAULT_CURRENT_DATE
+  checkIns: Record<string, string[] | Record<string, CheckInStatus>>,
+  todayStr: string = DEFAULT_CURRENT_DATE,
+  alpha: number = 0.2
 ): HabitStats {
-  const habitDates = checkIns[habit.id] || [];
-  const checkInSet = new Set(habitDates);
-  const totalCheckIns = checkInSet.size;
-
+  const habitRecords = checkIns[habit.id];
   const today = parseDate(todayStr);
   const created = parseDate(habit.createdAt);
 
   // 1. Current Streak
+  // Start from today if done or skipped. If not done today, check if yesterday was done/skipped so streak isn't lost yet today.
   let currentStreak = 0;
   let checkCursor = new Date(today);
-  const todayChecked = checkInSet.has(formatDate(checkCursor));
+  const todayStatus = getHabitDayStatus(habitRecords, formatDate(checkCursor));
 
-  // If today is checked, start streak counting from today
-  // If not checked yet today, check if yesterday was checked so streak isn't lost yet
-  if (!todayChecked) {
+  if (todayStatus !== 'done' && todayStatus !== 'skipped') {
+    // Today not completed yet, start check from yesterday
     checkCursor.setDate(checkCursor.getDate() - 1);
   }
 
@@ -70,75 +111,102 @@ export function calculateHabitStats(
     const scheduled = isHabitScheduledOnDate(habit, checkCursor);
 
     if (scheduled) {
-      if (checkInSet.has(dateStr)) {
+      const status = getHabitDayStatus(habitRecords, dateStr);
+      if (status === 'done') {
         currentStreak++;
+      } else if (status === 'skipped') {
+        // Feature 2: Skipped days bridge the streak without breaking it!
+        // Streak continues through them.
       } else {
-        // Streak broken
+        // Missed / uncompleted scheduled day breaks raw streak
         break;
       }
     }
     checkCursor.setDate(checkCursor.getDate() - 1);
   }
 
-  // 2. Longest Streak
-  // Walk through from creation to today
+  // 2. Longest Streak & 4. Exponential Moving Average Consistency Score
+  // Walk forward from creation date to today
   let longestStreak = 0;
   let runningStreak = 0;
-  const loopDate = new Date(created);
+  let totalCheckIns = 0;
+  let validScheduledDays = 0;
+  let completedScheduledDays = 0;
 
+  // EMA initialization: initial score is null until first scheduled non-skipped day
+  let emaScore: number | null = null;
+
+  const loopDate = new Date(created);
   while (loopDate <= today) {
     const dateStr = formatDate(loopDate);
     const scheduled = isHabitScheduledOnDate(habit, loopDate);
 
     if (scheduled) {
-      if (checkInSet.has(dateStr)) {
+      const status = getHabitDayStatus(habitRecords, dateStr);
+
+      if (status === 'done') {
         runningStreak++;
+        totalCheckIns++;
+        validScheduledDays++;
+        completedScheduledDays++;
+
+        // EMA update: completion_today = 1.0
+        if (emaScore === null) {
+          emaScore = 1.0;
+        } else {
+          emaScore = alpha * 1.0 + (1 - alpha) * emaScore;
+        }
+
         if (runningStreak > longestStreak) {
           longestStreak = runningStreak;
         }
+      } else if (status === 'skipped') {
+        // Feature 2: Skipped days are excluded entirely from both:
+        // - Consistency denominator
+        // - Consistency score's exponential smoothing (excluded from calculation, not treated as 0 or 1)
+        // - Running streak continues through them!
       } else {
+        // Missed or uncompleted scheduled day (treated as 0 if past or if today has passed)
+        // Only evaluate as missed if before today, or if today and actively marked missed
         runningStreak = 0;
+        validScheduledDays++;
+
+        if (emaScore === null) {
+          emaScore = 0.0;
+        } else {
+          emaScore = alpha * 0.0 + (1 - alpha) * emaScore;
+        }
       }
     }
+
     loopDate.setDate(loopDate.getDate() + 1);
   }
 
   longestStreak = Math.max(longestStreak, currentStreak);
 
-  // 3. Consistency %: completions / scheduled days since creation
-  let scheduledDaysCount = 0;
-  let completedScheduledCount = 0;
-  const countDate = new Date(created);
-
-  while (countDate <= today) {
-    const scheduled = isHabitScheduledOnDate(habit, countDate);
-    if (scheduled) {
-      scheduledDaysCount++;
-      if (checkInSet.has(formatDate(countDate))) {
-        completedScheduledCount++;
-      }
-    }
-    countDate.setDate(countDate.getDate() + 1);
-  }
-
-  const consistency = scheduledDaysCount > 0
-    ? Math.min(100, Math.round((completedScheduledCount / scheduledDaysCount) * 100))
+  // 3. Consistency %: completions / (scheduled days - skipped days)
+  const consistency = validScheduledDays > 0
+    ? Math.min(100, Math.round((completedScheduledDays / validScheduledDays) * 100))
     : 100;
+
+  // Consistency Score % (0-100 rounded)
+  const consistencyScore = emaScore !== null ? Math.min(100, Math.round(emaScore * 100)) : 100;
 
   return {
     currentStreak,
     longestStreak,
     consistency,
+    consistencyScore,
     totalCheckIns,
   };
 }
 
 /**
- * Calculates overall app streak across all habits
+ * Calculates overall app streak across all habits (bridges skipped days)
  */
 export function calculateOverallStreak(
   habits: Habit[],
-  checkIns: CheckInMap,
+  checkIns: Record<string, string[] | Record<string, CheckInStatus>>,
   todayStr: string = DEFAULT_CURRENT_DATE
 ): number {
   if (habits.length === 0) return 0;
@@ -147,10 +215,12 @@ export function calculateOverallStreak(
   let streak = 0;
   let cursor = new Date(today);
 
-  // Check if at least 1 habit checked today
   const isDateActive = (d: Date) => {
     const dStr = formatDate(d);
-    return habits.some((h) => (checkIns[h.id] || []).includes(dStr));
+    return habits.some((h) => {
+      const status = getHabitDayStatus(checkIns[h.id], dStr);
+      return status === 'done' || status === 'skipped';
+    });
   };
 
   if (!isDateActive(cursor)) {
@@ -171,16 +241,15 @@ export function calculateOverallStreak(
 }
 
 /**
- * Returns past 7 days (Monday - Sunday or past 7 days) data for bar charts
+ * Returns past 7 days data for weekly overview bar charts
  */
 export function getWeeklyOverview(
   habits: Habit[],
-  checkIns: CheckInMap,
+  checkIns: Record<string, string[] | Record<string, CheckInStatus>>,
   todayStr: string = DEFAULT_CURRENT_DATE
 ) {
   const today = parseDate(todayStr);
-  
-  // Find Monday of current week (ISO week)
+
   const day = today.getDay(); // 0 is Sunday, 1 is Monday
   const diffToMonday = (day === 0 ? -6 : 1) - day;
   const monday = new Date(today);
@@ -200,18 +269,24 @@ export function getWeeklyOverview(
 
     let scheduledHabits = 0;
     let completedHabits = 0;
+    let skippedHabits = 0;
 
     habits.forEach((h) => {
       if (isHabitScheduledOnDate(h, curDate)) {
-        scheduledHabits++;
-        if ((checkIns[h.id] || []).includes(curStr)) {
-          completedHabits++;
+        const status = getHabitDayStatus(checkIns[h.id], curStr);
+        if (status === 'skipped') {
+          skippedHabits++;
+        } else {
+          scheduledHabits++;
+          if (status === 'done') {
+            completedHabits++;
+          }
         }
       }
     });
 
     const completionRate = scheduledHabits > 0 ? completedHabits / scheduledHabits : 0;
-    
+
     if (!isFuture) {
       totalCompletionsThisWeek += completedHabits;
       totalPossibleThisWeek += scheduledHabits;
@@ -223,6 +298,7 @@ export function getWeeklyOverview(
       dayNumber: curDate.getDate(),
       completedHabits,
       scheduledHabits,
+      skippedHabits,
       completionRate,
       isFuture,
       isToday,
@@ -249,6 +325,8 @@ export interface HeatmapDay {
   isToday: boolean;
   isFuture: boolean;
   isCompleted: boolean;
+  isSkipped: boolean;
+  status: CheckInStatus | 'none';
   intensity: number; // 0 to 1 opacity
 }
 
@@ -259,11 +337,11 @@ export function getMonthlyHeatmapData(
   habitId: string,
   year: number,
   month: number, // 0-indexed (8 = September)
-  checkIns: CheckInMap,
+  checkIns: Record<string, string[] | Record<string, CheckInStatus>>,
   todayStr: string = DEFAULT_CURRENT_DATE
 ): HeatmapDay[] {
   const today = parseDate(todayStr);
-  const habitDates = new Set(checkIns[habitId] || []);
+  const habitRecords = checkIns[habitId];
 
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
@@ -281,7 +359,10 @@ export function getMonthlyHeatmapData(
     const d = prevMonthLastDay - i;
     const prevDate = new Date(year, month - 1, d);
     const dateStr = formatDate(prevDate);
-    const isCompleted = habitDates.has(dateStr);
+    const status = getHabitDayStatus(habitRecords, dateStr);
+    const isCompleted = status === 'done';
+    const isSkipped = status === 'skipped';
+
     result.push({
       dayNumber: d,
       dateStr,
@@ -289,7 +370,9 @@ export function getMonthlyHeatmapData(
       isToday: dateStr === todayStr,
       isFuture: prevDate > today,
       isCompleted,
-      intensity: isCompleted ? 0.8 : 0,
+      isSkipped,
+      status,
+      intensity: isCompleted ? 0.8 : isSkipped ? 0.5 : 0,
     });
   }
 
@@ -298,15 +381,15 @@ export function getMonthlyHeatmapData(
     const curDate = new Date(year, month, d);
     const dateStr = formatDate(curDate);
     const isFuture = curDate > today;
-    const isCompleted = habitDates.has(dateStr);
+    const status = getHabitDayStatus(habitRecords, dateStr);
+    const isCompleted = status === 'done';
+    const isSkipped = status === 'skipped';
 
-    // Calculate intensity: completed is full/varied opacity based on streak continuity
     let intensity = 0;
     if (isCompleted) {
       intensity = 1.0;
-    } else if (!isFuture) {
-      // Missed day: subtle 0 intensity or low trace if partial
-      intensity = 0;
+    } else if (isSkipped) {
+      intensity = 0.6;
     }
 
     result.push({
@@ -316,6 +399,8 @@ export function getMonthlyHeatmapData(
       isToday: dateStr === todayStr,
       isFuture,
       isCompleted,
+      isSkipped,
+      status,
       intensity,
     });
   }
@@ -332,6 +417,8 @@ export function getMonthlyHeatmapData(
       isToday: false,
       isFuture: true,
       isCompleted: false,
+      isSkipped: false,
+      status: 'none',
       intensity: 0,
     });
   }
