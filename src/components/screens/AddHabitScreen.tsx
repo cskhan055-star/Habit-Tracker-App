@@ -3,6 +3,11 @@ import { useHabit } from '../../context/HabitContext';
 import { AVAILABLE_ICONS } from '../common/Icons';
 import { HabitFrequency, HabitCategoryId } from '../../types/habit';
 import { HABIT_CATEGORIES } from '../../data/categories';
+import {
+  NotificationService,
+  formatTo12Hour,
+  normalizeTo24Hour,
+} from '../../services/notificationService';
 
 export const AddHabitScreen: React.FC = () => {
   const {
@@ -242,35 +247,32 @@ export const AddHabitScreen: React.FC = () => {
           </div>
         )}
 
-        {/* 5. Reminder Time Row with Gold Toggle Switch */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#15171B] border border-[#26282C] mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#E9CC8B]">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
+        {/* 5. Reminder Time Row with Gold Toggle Switch & Time Picker */}
+        <div className="flex flex-col gap-3 p-4 rounded-2xl bg-[#15171B] border border-[#26282C] mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#1C1F24] border border-[#26282C] flex items-center justify-center text-[#E9CC8B]">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-[#F3F0E9] block">Habit Push Reminder</span>
+                <span className="text-xs text-[#9C978F]">Notify at scheduled time</span>
+              </div>
             </div>
-            <div>
-              <span className="text-sm font-medium text-[#F3F0E9] block">Reminder</span>
-              <span className="text-xs text-[#9C978F]">Notify at scheduled time</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {reminderEnabled && (
-              <input
-                type="text"
-                value={reminderTime}
-                onChange={(e) => setReminderTime(e.target.value)}
-                className="w-20 text-center py-1 text-xs text-[#E9CC8B] bg-[#1C1F24] border border-[#26282C] rounded-lg outline-none"
-              />
-            )}
 
             {/* Custom Gold Toggle Switch */}
             <button
               type="button"
-              onClick={() => setReminderEnabled(!reminderEnabled)}
+              onClick={async () => {
+                const next = !reminderEnabled;
+                setReminderEnabled(next);
+                if (next && NotificationService.getPermission() === 'default') {
+                  await NotificationService.requestPermission();
+                }
+              }}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 reminderEnabled ? 'bg-gold-gradient' : 'bg-[#26282C]'
               }`}
@@ -284,6 +286,28 @@ export const AddHabitScreen: React.FC = () => {
               />
             </button>
           </div>
+
+          {reminderEnabled && (
+            <div className="flex items-center justify-between pt-2 border-t border-[#26282C]">
+              <span className="text-xs text-[#9C978F]">Reminder Time</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-serif text-[#E9CC8B]">
+                  {formatTo12Hour(reminderTime)}
+                </span>
+                <input
+                  type="time"
+                  value={normalizeTo24Hour(reminderTime)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setReminderTime(formatTo12Hour(val));
+                    }
+                  }}
+                  className="px-2 py-1 text-xs text-[#F3F0E9] bg-[#1C1F24] border border-[#26282C] rounded-lg outline-none cursor-pointer focus:border-[#C6A15B]"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

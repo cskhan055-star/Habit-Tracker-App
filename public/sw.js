@@ -46,3 +46,39 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push & Local Notification handling
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('/');
+      }
+    })
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'Aurum Habit Reminder', body: 'Time to check in on your habits today!' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+  const options = {
+    body: data.body,
+    icon: '/icon.svg',
+    badge: '/icon.svg',
+    vibrate: [100, 50, 100],
+    data: data.data || {},
+  };
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});

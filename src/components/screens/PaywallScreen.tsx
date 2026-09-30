@@ -31,6 +31,11 @@ export const PaywallScreen: React.FC = () => {
     lifetime: MOCK_PLAY_STORE_PRODUCTS[AURUM_GOLD_PRODUCT_IDS.LIFETIME],
   };
 
+  // Plan mapping to Google Play Product IDs (live query fallback)
+  const monthlyProduct = planToProductMap.monthly;
+  const yearlyProduct = planToProductMap.yearly;
+  const lifetimeProduct = planToProductMap.lifetime;
+
   const handleSelectAndBuy = async (plan: PlanOption) => {
     setSelectedPlan(plan);
     const product = planToProductMap[plan];
@@ -156,7 +161,7 @@ export const PaywallScreen: React.FC = () => {
           >
             <span className="text-[11px] text-[#9C978F] block">{t('paywallMonthly') || 'Monthly'}</span>
             <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
-              $2.99
+              {monthlyProduct?.price || '$2.99'}
             </span>
             <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">per month</span>
           </button>
@@ -178,7 +183,7 @@ export const PaywallScreen: React.FC = () => {
             </div>
             <span className="text-[11px] text-[#9C978F] block pt-1">{t('paywallYearly') || 'Yearly'}</span>
             <span className="font-serif text-lg font-normal text-gold-gradient block mt-1">
-              $19.99
+              {yearlyProduct?.price || '$19.99'}
             </span>
             <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">7-day free trial</span>
           </button>
@@ -196,7 +201,7 @@ export const PaywallScreen: React.FC = () => {
           >
             <span className="text-[11px] text-[#9C978F] block">{t('paywallLifetime') || 'Lifetime'}</span>
             <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
-              $35.00
+              {lifetimeProduct?.price || '$9.99'}
             </span>
             <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">one time</span>
           </button>
@@ -256,9 +261,9 @@ export const PaywallScreen: React.FC = () => {
             ) : selectedPlan === 'yearly' ? (
               t('paywallCta') || 'Start 7-Day Free Trial'
             ) : selectedPlan === 'monthly' ? (
-              'Subscribe Monthly • $2.99'
+              `Subscribe Monthly • ${monthlyProduct?.price || '$2.99'}`
             ) : (
-              'Unlock Lifetime Access • $35.00'
+              `Unlock Lifetime Access • ${lifetimeProduct?.price || '$9.99'}`
             )}
           </button>
         )}

@@ -576,8 +576,8 @@ export const HomeScreen: React.FC = () => {
                     }`}
                   >
                     <span
-                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cat.color }}
+                      className="w-1.5 h-1.5 rounded-full shrink-0 border-[1.5px] bg-transparent"
+                      style={{ borderColor: cat.color }}
                     />
                     <span>{cat.label}</span>
                   </button>
@@ -657,10 +657,10 @@ export const HomeScreen: React.FC = () => {
                             <h3 className="text-[#F3F0E9] text-[15px] font-medium truncate leading-snug">
                               {habit.name}
                             </h3>
-                            {/* Color-coded Category Dot Indicator */}
+                            {/* Thin colored outline ring only (1.5px stroke, no fill) */}
                             <span
-                              className="w-2 h-2 rounded-full shrink-0 shadow-xs"
-                              style={{ backgroundColor: categoryInfo.color }}
+                              className="w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] bg-transparent"
+                              style={{ borderColor: categoryInfo.color }}
                               title={`Category: ${categoryInfo.label}`}
                             />
                             {/* Skipped Badge if protected today */}

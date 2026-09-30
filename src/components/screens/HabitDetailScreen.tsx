@@ -177,8 +177,8 @@ export const HabitDetailScreen: React.FC = () => {
                 {habit.name}
               </h2>
               <span
-                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                style={{ backgroundColor: getCategoryById(habit.category).color }}
+                className="w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] bg-transparent"
+                style={{ borderColor: getCategoryById(habit.category).color }}
                 title={`Category: ${getCategoryById(habit.category).label}`}
               />
             </div>
@@ -208,11 +208,14 @@ export const HabitDetailScreen: React.FC = () => {
             </span>
           </div>
 
-          {/* Col 2: Smart Consistency Score Ring */}
+          {/* Col 2: Momentum Score Ring (Weighted toward recent days) */}
           <div className="text-center px-1 border-l border-[#26282C] flex flex-col items-center justify-center">
             <ConsistencyRing score={stats.consistencyScore} size={32} strokeWidth={3} />
             <span className="text-[10px] sm:text-[11px] text-[#E9CC8B] font-medium mt-1 block leading-tight">
-              {t('consistencyScoreLabel')}
+              {t('momentumLabel') || 'Momentum'}
+            </span>
+            <span className="text-[8px] sm:text-[9px] text-[#9C978F]/80 font-normal block leading-tight mt-0.5 max-w-[70px]">
+              {t('momentumSubtitle') || 'Weighted toward recent days'}
             </span>
           </div>
 

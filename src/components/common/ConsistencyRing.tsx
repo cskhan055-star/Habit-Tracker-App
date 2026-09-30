@@ -27,7 +27,7 @@ export const ConsistencyRing: React.FC<ConsistencyRingProps> = ({
     <div
       className="relative flex items-center justify-center select-none"
       style={{ width: size, height: size }}
-      title={`Consistency Score: ${clampedScore}% (exponential moving average)`}
+      title={`Momentum Score: ${clampedScore}% (weighted toward recent days)`}
     >
       <svg
         className="-rotate-90 transform"

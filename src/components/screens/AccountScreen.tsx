@@ -4,10 +4,11 @@ import { CrownIcon, AurumMark } from '../common/Icons';
 import { BottomNav } from '../common/BottomNav';
 import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
 import { DevicePairingSection } from '../common/DevicePairingSection';
+import { NotificationSettingsSection } from '../common/NotificationSettingsSection';
 import { SUPPORTED_LANGUAGES } from '../../data/languages';
 
 export const AccountScreen: React.FC = () => {
-  const { user, login, logout, updateUser, syncCloudData, setScreen, habits, checkIns, isPremium, setPremium, locale, t } = useHabit();
+  const { user, login, logout, updateUser, syncCloudData, setScreen, habits, checkIns, isPremium, entitlement, locale, t } = useHabit();
 
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [emailInput, setEmailInput] = useState(user.email || 'cskhan055@gmail.com');
@@ -172,7 +173,11 @@ export const AccountScreen: React.FC = () => {
                     </span>
                     <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#1F2228] text-[10px] text-[#E9CC8B] border border-[#C6A15B]/30 font-medium">
                       <CrownIcon size={11} strokeWidth={1.8} />
-                      {user.plan === 'lifetime' ? 'Lifetime Gold Member' : `${user.plan.toUpperCase()} Plan`}
+                      {isPremium
+                        ? user.plan === 'lifetime'
+                          ? 'Lifetime Gold Member'
+                          : `${user.plan.toUpperCase()} Plan`
+                        : 'Free Member'}
                     </span>
                   </div>
                 </div>
@@ -229,7 +234,7 @@ export const AccountScreen: React.FC = () => {
                     </span>
                     <span className="text-[10px] text-[#9C978F]">
                       {isPremium
-                        ? `Active ${user.plan === 'monthly' ? 'Monthly ($2.99/mo)' : user.plan === 'yearly' ? 'Yearly ($19.99/yr)' : 'Lifetime ($35.00)'}`
+                        ? `Active ${user.plan === 'monthly' ? 'Monthly ($2.99/mo)' : user.plan === 'yearly' ? 'Yearly ($19.99/yr)' : 'Lifetime ($9.99)'}`
                         : 'Limited to 5 habits & basic features'}
                     </span>
                   </div>
@@ -247,7 +252,7 @@ export const AccountScreen: React.FC = () => {
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
                   <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Plan</span>
                   <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5 capitalize">
-                    {isPremium ? user.plan : 'Free'}
+                    {isPremium ? (user.plan === 'free' ? 'Gold' : user.plan) : 'Free'}
                   </span>
                 </div>
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
@@ -257,7 +262,7 @@ export const AccountScreen: React.FC = () => {
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
                   <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Habit Limit</span>
                   <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5">
-                    {isPremium ? 'Unlimited' : '5 Habits'}
+                    {entitlement.maxHabits > 500 ? 'Unlimited' : `${entitlement.maxHabits} Habits`}
                   </span>
                 </div>
               </div>
@@ -341,6 +346,9 @@ export const AccountScreen: React.FC = () => {
                 Change
               </button>
             </div>
+
+            {/* Daily Habit Push Notifications & Custom Scheduled Reminders */}
+            <NotificationSettingsSection onShowToast={showToast} />
 
             {/* Smartwatch & Wearables Pairing (Bluetooth) */}
             <DevicePairingSection onShowToast={showToast} />

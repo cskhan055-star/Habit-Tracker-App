@@ -65,3 +65,11 @@ export interface HabitStats {
   consistencyScore: number; // exponential moving average score (0-100%)
   totalCheckIns: number;
 }
+
+export interface NotificationSettings {
+  enabled: boolean;
+  dailyReminderTime: string; // "HH:MM" 24-hour format e.g. "20:30" (8:30 PM)
+  soundEnabled: boolean;
+  includePendingCount: boolean;
+  perHabitReminders: boolean;
+}

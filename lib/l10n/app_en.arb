@@ -55,6 +55,8 @@
   "markAsDone": "Mark as completed",
   "markAsMissed": "Reset to uncompleted",
   "consistencyScoreLabel": "Consistency Score",
+  "momentumLabel": "Momentum",
+  "momentumSubtitle": "Weighted toward recent days",
   "skippedDayNote": "Excused travel or rest day — protected from streak resets",
   "habitLimitReachedTitle": "Free Habit Limit Reached",
   "habitLimitReachedDesc": "Free tier includes up to 5 habits. Upgrade to Aurum Gold for unlimited habits.",

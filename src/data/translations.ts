@@ -58,6 +58,8 @@ export interface TranslationKeys {
   skippedDayNote?: string;
   consistencyScoreLabel?: string;
   smartConsistencyTitle?: string;
+  momentumLabel?: string;
+  momentumSubtitle?: string;
   travelProtectionTooltip?: string;
   // Billing & Gating Keys
   habitLimitReachedTitle?: string;
@@ -133,6 +135,8 @@ export const TRANSLATIONS: Record<string, TranslationKeys> = {
     skippedDayNote: 'Protected day (travel, illness, planned rest). Does not count against your streak.',
     consistencyScoreLabel: 'Score',
     smartConsistencyTitle: 'Smart Consistency Score',
+    momentumLabel: 'Momentum',
+    momentumSubtitle: 'Weighted toward recent days',
     travelProtectionTooltip: 'Long-press to excuse / travel protect',
     habitLimitReachedTitle: 'Free Habit Limit Reached',
     habitLimitReachedDesc: 'Free tier includes up to 5 habits. Upgrade to Aurum Gold for unlimited habits.',

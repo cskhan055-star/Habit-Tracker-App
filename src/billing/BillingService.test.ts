@@ -53,7 +53,7 @@ export function runBillingTests(): { name: string; passed: boolean; message?: st
 
     assert(monthly.type === 'subs' && monthly.price === '$2.99', 'Monthly product is subscription at $2.99');
     assert(yearly.type === 'subs' && yearly.price === '$19.99', 'Yearly product is subscription at $19.99 with free trial');
-    assert(lifetime.type === 'inapp' && lifetime.price === '$35.00', 'Lifetime product is non-consumable at $35.00');
+    assert(lifetime.type === 'inapp' && lifetime.price === '$9.99', 'Lifetime product is non-consumable at $9.99');
   }
 
   // Test 4: BillingService purchase lifecycle
