@@ -12,7 +12,8 @@ type PlanOption = 'monthly' | 'yearly' | 'lifetime';
 export const PaywallScreen: React.FC = () => {
   const {
     setScreen,
-    isPremium,
+    entitlement,
+    user,
     buyProduct,
     restorePurchases,
     isPurchasePending,
@@ -35,6 +36,20 @@ export const PaywallScreen: React.FC = () => {
   const monthlyProduct = planToProductMap.monthly;
   const yearlyProduct = planToProductMap.yearly;
   const lifetimeProduct = planToProductMap.lifetime;
+
+  // Active subscriber plan details for confirmation state
+  const isLifetime = user.plan === 'lifetime';
+  const planDisplayName = isLifetime
+    ? 'Lifetime'
+    : user.plan === 'monthly'
+    ? 'Monthly Plan'
+    : 'Yearly Plan';
+
+  const planRenewalDetail = isLifetime
+    ? 'Lifetime access'
+    : user.plan === 'monthly'
+    ? `${monthlyProduct?.price || '$2.99'}/mo, renews on October 24, 2026`
+    : `${yearlyProduct?.price || '$19.99'}/yr, renews on September 24, 2027`;
 
   const handleSelectAndBuy = async (plan: PlanOption) => {
     setSelectedPlan(plan);
@@ -108,7 +123,7 @@ export const PaywallScreen: React.FC = () => {
             disabled={isPurchasePending}
             className="text-xs text-[#9C978F] hover:text-[#F3F0E9] px-3 py-1.5 rounded-lg border border-transparent hover:border-[#26282C] transition-colors cursor-pointer"
           >
-            Skip
+            {entitlement.isGold ? 'Done' : 'Skip'}
           </button>
         </div>
 
@@ -146,66 +161,103 @@ export const PaywallScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Three Pricing Cards Side by Side (Wiring to Google Play buy()) */}
-        <div className="grid grid-cols-3 gap-2.5 mb-6">
-          {/* Monthly: aurum_gold_monthly */}
-          <button
-            type="button"
-            disabled={isPurchasePending}
-            onClick={() => handleSelectAndBuy('monthly')}
-            className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
-              selectedPlan === 'monthly'
-                ? 'bg-[#1C1F24] border-2 border-[#E9CC8B]'
-                : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
-            }`}
-          >
-            <span className="text-[11px] text-[#9C978F] block">{t('paywallMonthly') || 'Monthly'}</span>
-            <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
-              {monthlyProduct?.price || '$2.99'}
-            </span>
-            <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">per month</span>
-          </button>
+        {/* Pricing / Plan Card Area */}
+        {entitlement.isGold ? (
+          /* Confirmation State for Active Subscribers */
+          <div className="rounded-2xl bg-[#15171B] border border-[#C6A15B]/40 p-5 mb-6 text-center space-y-3.5 shadow-lg">
+            <div className="flex flex-col items-center">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1F2228] border border-[#C6A15B]/30 text-[#E9CC8B] text-[10px] font-medium mb-2">
+                <CrownIcon size={12} strokeWidth={1.8} />
+                <span>Aurum Gold Active</span>
+              </span>
 
-          {/* Yearly: aurum_gold_yearly (Promoted as Best Value) */}
-          <button
-            type="button"
-            disabled={isPurchasePending}
-            onClick={() => handleSelectAndBuy('yearly')}
-            className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
-              selectedPlan === 'yearly'
-                ? 'bg-[#1C1F24] border-2 border-[#E9CC8B] shadow-md'
-                : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
-            }`}
-          >
-            {/* Best Value Badge */}
-            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-gold-gradient text-[#0A0B0D] text-[9px] font-semibold tracking-wider uppercase whitespace-nowrap">
-              Best Value
+              <h3 className="font-serif text-xl font-normal text-[#F3F0E9]">
+                {planDisplayName}
+              </h3>
+
+              <p className="text-xs text-[#9C978F] mt-1 font-normal">
+                {planRenewalDetail}
+              </p>
             </div>
-            <span className="text-[11px] text-[#9C978F] block pt-1">{t('paywallYearly') || 'Yearly'}</span>
-            <span className="font-serif text-lg font-normal text-gold-gradient block mt-1">
-              {yearlyProduct?.price || '$19.99'}
-            </span>
-            <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">7-day free trial</span>
-          </button>
 
-          {/* Lifetime: aurum_gold_lifetime */}
-          <button
-            type="button"
-            disabled={isPurchasePending}
-            onClick={() => handleSelectAndBuy('lifetime')}
-            className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
-              selectedPlan === 'lifetime'
-                ? 'bg-[#1C1F24] border-2 border-[#E9CC8B]'
-                : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
-            }`}
-          >
-            <span className="text-[11px] text-[#9C978F] block">{t('paywallLifetime') || 'Lifetime'}</span>
-            <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
-              {lifetimeProduct?.price || '$9.99'}
-            </span>
-            <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">one time</span>
-          </button>
-        </div>
+            <div className="pt-2 border-t border-[#26282C]">
+              <a
+                href="https://play.google.com/store/account/subscriptions?package=com.aurum.habits"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#1C1F24] hover:bg-[#252932] border border-[#26282C] hover:border-[#C6A15B]/50 text-xs font-medium text-[#E9CC8B] flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+                <span>Manage Subscription</span>
+              </a>
+            </div>
+          </div>
+        ) : (
+          /* Non-Subscribed State: Three Pricing Cards */
+          <div className="grid grid-cols-3 gap-2.5 mb-6">
+            {/* Monthly: aurum_gold_monthly */}
+            <button
+              type="button"
+              disabled={isPurchasePending}
+              onClick={() => handleSelectAndBuy('monthly')}
+              className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
+                selectedPlan === 'monthly'
+                  ? 'bg-[#1C1F24] border-2 border-[#E9CC8B]'
+                  : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
+              }`}
+            >
+              <span className="text-[11px] text-[#9C978F] block">{t('paywallMonthly') || 'Monthly'}</span>
+              <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
+                {monthlyProduct?.price || '$2.99'}
+              </span>
+              <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">per month</span>
+            </button>
+
+            {/* Yearly: aurum_gold_yearly (Promoted as Best Value) */}
+            <button
+              type="button"
+              disabled={isPurchasePending}
+              onClick={() => handleSelectAndBuy('yearly')}
+              className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
+                selectedPlan === 'yearly'
+                  ? 'bg-[#1C1F24] border-2 border-[#E9CC8B] shadow-md'
+                  : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
+              }`}
+            >
+              {/* Best Value Badge */}
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-gold-gradient text-[#0A0B0D] text-[9px] font-semibold tracking-wider uppercase whitespace-nowrap">
+                Best Value
+              </div>
+              <span className="text-[11px] text-[#9C978F] block pt-1">{t('paywallYearly') || 'Yearly'}</span>
+              <span className="font-serif text-lg font-normal text-gold-gradient block mt-1">
+                {yearlyProduct?.price || '$19.99'}
+              </span>
+              <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">7-day free trial</span>
+            </button>
+
+            {/* Lifetime: aurum_gold_lifetime */}
+            <button
+              type="button"
+              disabled={isPurchasePending}
+              onClick={() => handleSelectAndBuy('lifetime')}
+              className={`relative rounded-2xl p-3 text-center transition-all cursor-pointer disabled:opacity-60 ${
+                selectedPlan === 'lifetime'
+                  ? 'bg-[#1C1F24] border-2 border-[#E9CC8B]'
+                  : 'bg-[#15171B] border border-[#26282C] hover:border-[#26282C]/90'
+              }`}
+            >
+              <span className="text-[11px] text-[#9C978F] block">{t('paywallLifetime') || 'Lifetime'}</span>
+              <span className="font-serif text-lg font-normal text-[#F3F0E9] block mt-1">
+                {lifetimeProduct?.price || '$9.99'}
+              </span>
+              <span className="text-[10px] text-[#9C978F]/70 block mt-0.5">one time</span>
+            </button>
+          </div>
+        )}
 
         {/* Feedback / Error Alerts */}
         {restoreFeedback && (
@@ -220,30 +272,32 @@ export const PaywallScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Social Proof */}
-        <div className="flex flex-col items-center justify-center text-center mb-6">
-          <div className="flex items-center gap-1 text-[#E9CC8B] mb-1">
-            {[...Array(5)].map((_, i) => (
-              <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-            ))}
+        {/* Social Proof (Visible only in non-subscriber state) */}
+        {!entitlement.isGold && (
+          <div className="flex flex-col items-center justify-center text-center mb-6">
+            <div className="flex items-center gap-1 text-[#E9CC8B] mb-1">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              ))}
+            </div>
+            <span className="text-xs text-[#9C978F]">
+              Rated 4.9 by over 50,000 members
+            </span>
           </div>
-          <span className="text-xs text-[#9C978F]">
-            Rated 4.9 by over 50,000 members
-          </span>
-        </div>
+        )}
       </div>
 
       {/* Bottom CTA Area */}
       <div className="relative z-10 w-full max-w-sm mx-auto space-y-2.5">
-        {isPremium ? (
-          <div className="w-full h-13 rounded-2xl bg-emerald-950 border border-emerald-800 text-emerald-200 font-medium text-sm flex items-center justify-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>Aurum Gold Active</span>
-          </div>
+        {entitlement.isGold ? (
+          <button
+            onClick={() => setScreen('home')}
+            className="w-full h-13 rounded-2xl bg-gold-gradient text-[#0A0B0D] font-medium text-sm tracking-wide flex items-center justify-center gold-btn-shadow hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            Return to Habits
+          </button>
         ) : (
           <button
             onClick={handleMainCta}
@@ -268,9 +322,11 @@ export const PaywallScreen: React.FC = () => {
           </button>
         )}
 
-        <p className="text-[10px] text-[#9C978F]/60 text-center">
-          {t('paywallFinePrint') || 'Cancel anytime • Renews automatically'}
-        </p>
+        {!entitlement.isGold && (
+          <p className="text-[10px] text-[#9C978F]/60 text-center">
+            {t('paywallFinePrint') || 'Cancel anytime • Renews automatically'}
+          </p>
+        )}
       </div>
     </div>
   );
