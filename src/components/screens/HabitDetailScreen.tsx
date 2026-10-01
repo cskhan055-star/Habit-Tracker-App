@@ -240,6 +240,34 @@ export const HabitDetailScreen: React.FC = () => {
           </div>
         </div>
 
+        {/* Featured Today's Reflection Note Banner */}
+        {habitReflections[currentDate] && (
+          <div className="rounded-2xl bg-gradient-to-r from-[#171612] via-[#1A1914] to-[#15171B] border border-[#C6A15B]/40 p-4 mb-7 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="text-[11px] uppercase tracking-wider text-[#C6A15B] font-semibold flex items-center gap-1.5">
+                  Today's Reflection · {currentDate}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDate(currentDate);
+                  setNoteContent(habitReflections[currentDate] || '');
+                  setIsWritingNote(true);
+                }}
+                className="text-[11px] text-[#E9CC8B] hover:underline cursor-pointer font-medium"
+              >
+                Edit Note
+              </button>
+            </div>
+            <p className="text-xs text-[#F3F0E9] font-light italic leading-relaxed">
+              “{habitReflections[currentDate]}”
+            </p>
+          </div>
+        )}
+
         {/* Monthly Calendar Heatmap Grid */}
         <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-6">
           {/* Month Navigation Arrows */}
@@ -372,6 +400,7 @@ export const HabitDetailScreen: React.FC = () => {
             isOpen={Boolean(actionSheetDate)}
             onClose={() => setActionSheetDate(null)}
             habitName={habit.name}
+            habitId={habit.id}
             dateStr={actionSheetDate}
             currentStatus={currentSheetStatus}
             onSetStatus={(status) => setCheckInStatus(habit.id, actionSheetDate, status)}
@@ -382,11 +411,19 @@ export const HabitDetailScreen: React.FC = () => {
         <div className="rounded-2xl bg-[#15171B] border border-[#26282C] p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-serif text-base font-normal text-[#F3F0E9] tracking-tight">
-                Daily Reflections
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-base font-normal text-[#F3F0E9] tracking-tight">
+                  Daily Reflections
+                </h3>
+                {Object.keys(habitReflections).length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#1C1F24] border border-[#26282C] text-[10px] text-[#E9CC8B] font-mono font-medium">
+                    {Object.keys(habitReflections).length}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[#9C978F] mt-0.5 font-sans">
                 Selected date: <span className="text-[#E9CC8B] font-medium">{selectedDate}</span>
+                {selectedDate === currentDate ? ' (Today)' : ''}
               </p>
             </div>
 
@@ -403,6 +440,38 @@ export const HabitDetailScreen: React.FC = () => {
               </button>
             )}
           </div>
+
+          {/* Active Selected Date Reflection Box */}
+          {!isWritingNote && (
+            <div className="mb-4 p-3.5 rounded-xl bg-[#0A0B0D] border border-[#26282C]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-mono text-[#9C978F]">
+                  Entry for {selectedDate}
+                </span>
+                {habitReflections[selectedDate] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNoteContent(habitReflections[selectedDate] || '');
+                      setIsWritingNote(true);
+                    }}
+                    className="text-[11px] text-[#E9CC8B] hover:underline cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+              {habitReflections[selectedDate] ? (
+                <p className="text-xs text-[#F3F0E9] font-light italic leading-relaxed">
+                  “{habitReflections[selectedDate]}”
+                </p>
+              ) : (
+                <p className="text-xs text-[#9C978F]/60 font-light">
+                  No reflection recorded for this day. Tap “+ Add Note” to record your thoughts.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Note Input Box */}
           {isWritingNote && (
@@ -430,6 +499,15 @@ export const HabitDetailScreen: React.FC = () => {
                   Save Reflection
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Reflections List Header */}
+          {Object.keys(habitReflections).length > 0 && (
+            <div className="pt-2 mb-2">
+              <span className="text-[10px] uppercase tracking-wider text-[#9C978F]/70 font-medium block">
+                All Reflections Archive
+              </span>
             </div>
           )}
 

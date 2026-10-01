@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckInStatus } from '../../types/habit';
+import { useHabit } from '../../context/HabitContext';
 
 interface DayActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   habitName: string;
+  habitId?: string;
   dateStr: string;
   currentStatus: CheckInStatus | 'none';
   onSetStatus: (status: CheckInStatus | 'none') => void;
@@ -14,11 +16,33 @@ export const DayActionSheet: React.FC<DayActionSheetProps> = ({
   isOpen,
   onClose,
   habitName,
+  habitId,
   dateStr,
   currentStatus,
   onSetStatus,
 }) => {
+  const { reflections, saveReflection, deleteReflection } = useHabit();
+  const existingNote = (habitId && reflections[habitId]?.[dateStr]) || '';
+  const [sheetNote, setSheetNote] = useState(existingNote);
+  const [isNoteBoxOpen, setIsNoteBoxOpen] = useState(Boolean(existingNote));
+
+  useEffect(() => {
+    if (isOpen) {
+      setSheetNote(existingNote);
+      setIsNoteBoxOpen(Boolean(existingNote));
+    }
+  }, [isOpen, existingNote]);
+
   if (!isOpen) return null;
+
+  const handleSaveNote = () => {
+    if (!habitId) return;
+    if (sheetNote.trim()) {
+      saveReflection(habitId, dateStr, sheetNote.trim());
+    } else {
+      deleteReflection(habitId, dateStr);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
@@ -153,6 +177,67 @@ export const DayActionSheet: React.FC<DayActionSheetProps> = ({
             </button>
           )}
         </div>
+
+        {/* Optional Reflection Note Section */}
+        {habitId && (
+          <div className="mt-4 pt-3.5 border-t border-[#26282C]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-[#F3F0E9] flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-[#C6A15B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span>Daily Reflection</span>
+              </span>
+              {!isNoteBoxOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsNoteBoxOpen(true)}
+                  className="text-[11px] text-[#E9CC8B] hover:underline cursor-pointer"
+                >
+                  {existingNote ? 'View Note' : '+ Add Note'}
+                </button>
+              )}
+            </div>
+
+            {isNoteBoxOpen && (
+              <div className="space-y-2 animate-in fade-in duration-150">
+                <textarea
+                  value={sheetNote}
+                  onChange={(e) => setSheetNote(e.target.value)}
+                  placeholder="Record an optional reflection on this day..."
+                  rows={2}
+                  maxLength={300}
+                  className="w-full p-2.5 rounded-xl bg-[#0A0B0D] border border-[#26282C] focus:border-[#C6A15B]/70 focus:ring-1 focus:ring-[#C6A15B]/30 text-xs text-[#F3F0E9] placeholder-[#9C978F]/40 outline-none resize-none leading-relaxed transition-all"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-[#9C978F]/50">
+                    {sheetNote.length}/300
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsNoteBoxOpen(false)}
+                      className="px-2.5 py-1 text-xs text-[#9C978F] hover:text-[#F3F0E9] cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSaveNote();
+                        setIsNoteBoxOpen(false);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-gold-gradient text-[#0A0B0D] text-xs font-semibold cursor-pointer gold-btn-shadow"
+                    >
+                      Save Note
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

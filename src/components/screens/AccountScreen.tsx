@@ -45,12 +45,12 @@ export const AccountScreen: React.FC = () => {
       return;
     }
 
-    login(emailInput.trim(), authMode === 'signup' ? nameInput.trim() : (emailInput.split('@')[0] || 'User'), 'lifetime');
+    login(emailInput.trim(), authMode === 'signup' ? nameInput.trim() : (emailInput.split('@')[0] || 'User'), 'free');
     showToast(`Welcome back, ${authMode === 'signup' ? nameInput : emailInput.split('@')[0]}!`);
   };
 
   const handleQuickDemoLogin = (email: string, name: string) => {
-    login(email, name, 'lifetime');
+    login(email, name, 'free');
     showToast(`Signed in as ${name}`);
   };
 
@@ -173,7 +173,7 @@ export const AccountScreen: React.FC = () => {
                     </span>
                     <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#1F2228] text-[10px] text-[#E9CC8B] border border-[#C6A15B]/30 font-medium">
                       <CrownIcon size={11} strokeWidth={1.8} />
-                      {isPremium
+                      {entitlement.isGold
                         ? user.plan === 'lifetime'
                           ? 'Lifetime Gold Member'
                           : `${user.plan.toUpperCase()} Plan`
@@ -230,10 +230,10 @@ export const AccountScreen: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-xs font-semibold text-[#F3F0E9] block">
-                      {isPremium ? 'Aurum Gold Access' : 'Aurum Free Tier'}
+                      {entitlement.isGold ? 'Aurum Gold Access' : 'Aurum Free Tier'}
                     </span>
                     <span className="text-[10px] text-[#9C978F]">
-                      {isPremium
+                      {entitlement.isGold
                         ? `Active ${user.plan === 'monthly' ? 'Monthly ($2.99/mo)' : user.plan === 'yearly' ? 'Yearly ($19.99/yr)' : 'Lifetime ($9.99)'}`
                         : 'Limited to 5 habits & basic features'}
                     </span>
@@ -244,7 +244,7 @@ export const AccountScreen: React.FC = () => {
                   onClick={() => setScreen('paywall')}
                   className="px-2.5 py-1 rounded-lg bg-gold-gradient text-[#0A0B0D] text-[11px] font-semibold hover:brightness-105 transition-all cursor-pointer"
                 >
-                  {isPremium ? 'Manage' : 'Upgrade'}
+                  {entitlement.isGold ? 'Manage' : 'Upgrade'}
                 </button>
               </div>
 
@@ -252,7 +252,7 @@ export const AccountScreen: React.FC = () => {
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">
                   <span className="text-[9px] text-[#9C978F] block uppercase tracking-wider">Plan</span>
                   <span className="font-serif text-xs text-[#E9CC8B] font-medium block mt-0.5 capitalize">
-                    {isPremium ? (user.plan === 'free' ? 'Gold' : user.plan) : 'Free'}
+                    {entitlement.isGold ? (user.plan === 'free' ? 'Gold' : user.plan) : 'Free'}
                   </span>
                 </div>
                 <div className="bg-[#0A0B0D]/40 rounded-xl p-2">

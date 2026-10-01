@@ -242,6 +242,13 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // In-App Purchase / Billing State
   const [isPremium, setIsPremium] = useState<boolean>(() => {
     try {
+      const userRaw = localStorage.getItem(STORAGE_KEY_USER);
+      if (userRaw) {
+        const u = JSON.parse(userRaw);
+        if (u && u.plan === 'free') {
+          return false;
+        }
+      }
       const saved = localStorage.getItem(STORAGE_KEY_PREMIUM);
       if (saved) return JSON.parse(saved);
     } catch {
@@ -362,7 +369,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [user]);
 
-  const login = (email: string, name?: string, plan: 'free' | 'monthly' | 'yearly' | 'lifetime' = 'lifetime') => {
+  const login = (email: string, name?: string, plan: 'free' | 'monthly' | 'yearly' | 'lifetime' = 'free') => {
     setUser({
       isLoggedIn: true,
       email,
@@ -374,6 +381,8 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     if (plan !== 'free') {
       setIsPremium(true);
+    } else {
+      setIsPremium(false);
     }
   };
 
@@ -483,6 +492,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const addHabit = (habitData: Omit<Habit, 'id' | 'createdAt'>): string => {
+    if (habits.length >= entitlement.maxHabits) {
+      openPaywall({ trigger: 'habit_limit_reached' });
+      return '';
+    }
     const newId = `habit-${Date.now()}`;
     const newHabit: Habit = {
       ...habitData,

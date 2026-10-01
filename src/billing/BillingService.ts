@@ -102,8 +102,12 @@ class BillingService {
   }
 
   /**
-   * Triggers the Google Play purchase flow for a given ProductDetails
-   * Emits 'pending' first, then resolves to 'purchased' or 'error'
+   * Triggers the Google Play purchase flow for a given ProductDetails.
+   * Emits 'pending' first.
+   * On Web / AI Studio sandbox (where Google Play Services and Play Store are absent):
+   * Emits 'error' informing that genuine Google Play payment sheets require an Internal Testing
+   * track build installed from Google Play Console with License Testing enabled.
+   * Never optimistically sets isGold to true.
    */
   async buy(product: ProductDetails): Promise<void> {
     const purchaseId = `purchase-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -124,42 +128,63 @@ class BillingService {
     this.pendingPurchases.set(purchaseId, pendingPurchase);
     this.notifyListeners(pendingPurchase);
 
-    // 2. Simulate native Google Play sheet interaction
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    // 2. Real Google Play Billing interaction check
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // TODO: Verify purchase against Google Play Developer API (Phase 5) before finalizing
-    // Server-side purchase verification should confirm purchase token with purchases.subscriptions.get
-    // or purchases.products.get on production backend before unlocking entitlement.
+    // Check if running in a native Android environment with Google Play Services
+    const isNativeAndroid = typeof window !== 'undefined' &&
+      (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() === 'android';
 
-    const completedPurchase: PurchaseDetails = {
+    if (isNativeAndroid) {
+      // In native Android wrapper with Play Billing plugin, delegate to native Google Play Billing client
+      // Native plugin returns PurchaseStatus.purchased / PurchaseStatus.error via native listener
+      return;
+    }
+
+    // In AI Studio / browser sandbox environment:
+    // Play Billing requires an actual Play Console listing (Internal Testing track) with a Payments Profile
+    // and License Testing account. Genuine payment sheets cannot be issued inside the browser sandbox.
+    // Do NOT fake or mock purchase completion here; emit error and preserve locked isGold state.
+    const sandboxNotice: PurchaseDetails = {
       ...pendingPurchase,
-      status: 'purchased',
+      status: 'error',
+      errorMessage: 'Google Play Billing requires an Internal Testing track build installed from Google Play Console. Genuine payment sheets cannot be issued inside the browser sandbox.',
     };
 
     this.pendingPurchases.delete(purchaseId);
-    this.notifyListeners(completedPurchase);
+    this.notifyListeners(sandboxNotice);
   }
 
   /**
-   * Restores existing purchases for the active Google Play account
+   * Restores existing purchases for the active Google Play account.
+   * Only emits 'restored' if verified purchase tokens exist; otherwise notifies no active purchase.
    */
   async restorePurchases(): Promise<void> {
-    // Emit restored state for lifetime/subscription if previously owned
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
-    const restoredPurchase: PurchaseDetails = {
-      purchaseId: `restored-${Date.now()}`,
+    const isNativeAndroid = typeof window !== 'undefined' &&
+      (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() === 'android';
+
+    if (isNativeAndroid) {
+      // Delegated to native Play Billing queryPurchasesAsync()
+      return;
+    }
+
+    // In browser sandbox with no active Google Play account linked
+    const noPurchase: PurchaseDetails = {
+      purchaseId: `restore-none-${Date.now()}`,
       productId: AURUM_GOLD_PRODUCT_IDS.YEARLY,
-      status: 'restored',
+      status: 'error',
       transactionDate: Date.now(),
       verificationData: {
         source: 'google_play',
-        serverVerificationData: `restored-token-${Date.now()}`,
-        localVerificationData: `restored-local-${Date.now()}`,
+        serverVerificationData: '',
+        localVerificationData: '',
       },
+      errorMessage: 'No active Google Play purchases found to restore for this account.',
     };
 
-    this.notifyListeners(restoredPurchase);
+    this.notifyListeners(noPurchase);
   }
 }
 

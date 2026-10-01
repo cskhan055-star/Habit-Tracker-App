@@ -6,6 +6,7 @@ import { ThemeSelectorModal } from '../common/ThemeSelectorModal';
 import { LanguageSelectorModal } from '../common/LanguageSelectorModal';
 import { ConsistencyRing } from '../common/ConsistencyRing';
 import { DayActionSheet } from '../common/DayActionSheet';
+import { CompletionNoteModal } from '../common/CompletionNoteModal';
 import { SUPPORTED_LANGUAGES } from '../../data/languages';
 import { HABIT_CATEGORIES, getCategoryById } from '../../data/categories';
 import {
@@ -15,12 +16,15 @@ import {
   getHabitDayStatus,
   parseDate,
 } from '../../utils/streakEngine';
-import { CheckInStatus } from '../../types/habit';
+import { CheckInStatus, Habit } from '../../types/habit';
 
 export const HomeScreen: React.FC = () => {
   const {
     habits,
     checkInRecords,
+    reflections,
+    saveReflection,
+    deleteReflection,
     currentDate,
     overallStreak,
     todayCheckInRatio,
@@ -30,7 +34,6 @@ export const HomeScreen: React.FC = () => {
     setHomeViewMode,
     setSelectedHabitId,
     setScreen,
-    isPremium,
     entitlement,
     openPaywall,
     user,
@@ -44,6 +47,10 @@ export const HomeScreen: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+
+  // Optional Completion Note modal state
+  const [completionModalHabit, setCompletionModalHabit] = useState<Habit | null>(null);
+  const [completionModalDate, setCompletionModalDate] = useState<string>(currentDate);
 
   // Feature 2: Action sheet for Skip / Excused day selection via long-press
   const [actionSheetHabitId, setActionSheetHabitId] = useState<string | null>(null);
@@ -65,13 +72,22 @@ export const HomeScreen: React.FC = () => {
     e.stopPropagation();
     setAnimatingHabitId(habitId);
 
+    const targetHabit = habits.find((h) => h.id === habitId);
     // Check if habit is being completed (not uncompleted)
     const currentStatus = getHabitDayStatus(checkInRecords[habitId], currentDate);
-    if (currentStatus !== 'done') {
+    const isNowCompleting = currentStatus !== 'done';
+
+    if (isNowCompleting) {
       setIsStreakShimmering(true);
       setTimeout(() => {
         setIsStreakShimmering(false);
       }, 900);
+
+      // Open the optional completion note prompt
+      if (targetHabit) {
+        setCompletionModalHabit(targetHabit);
+        setCompletionModalDate(currentDate);
+      }
     }
 
     toggleCheckIn(habitId, currentDate);
@@ -237,7 +253,7 @@ export const HomeScreen: React.FC = () => {
             <button
               onClick={() => setScreen('paywall')}
               className={`w-10 h-10 rounded-full border border-[#26282C] flex items-center justify-center cursor-pointer transition-colors ${
-                isPremium
+                entitlement.isGold
                   ? 'bg-gold-gradient text-[#0A0B0D] border-transparent'
                   : 'bg-[#15171B] text-[#E9CC8B] hover:border-[#E9CC8B]/40'
               }`}
@@ -267,6 +283,7 @@ export const HomeScreen: React.FC = () => {
             isOpen={Boolean(actionSheetHabitId)}
             onClose={() => setActionSheetHabitId(null)}
             habitName={actionHabit.name}
+            habitId={actionHabit.id}
             dateStr={currentDate}
             currentStatus={actionHabitStatus}
             onSetStatus={(status) => setCheckInStatus(actionHabit.id, currentDate, status)}
@@ -468,6 +485,54 @@ export const HomeScreen: React.FC = () => {
                         </svg>
                       </button>
                     </div>
+
+                    {/* Focus Mode Daily Reflection Note Display / Add Note trigger */}
+                    {(() => {
+                      const todayNote = reflections[habit.id]?.[currentDate];
+                      if (todayNote) {
+                        return (
+                          <div className="mt-4 p-3 rounded-2xl bg-[#1C1F24] border border-[#26282C] text-xs text-[#F3F0E9] flex items-start justify-between gap-3 text-left">
+                            <div className="flex items-start gap-2.5 overflow-hidden">
+                              <span className="text-[#E9CC8B] text-base leading-none select-none font-serif">“</span>
+                              <p className="italic text-[#F3F0E9]/90 font-light text-xs leading-relaxed line-clamp-2">
+                                {todayNote}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompletionModalHabit(habit);
+                                setCompletionModalDate(currentDate);
+                              }}
+                              className="text-[11px] text-[#E9CC8B] hover:underline shrink-0 ml-1 cursor-pointer font-medium"
+                            >
+                              Edit Note
+                            </button>
+                          </div>
+                        );
+                      }
+                      if (isChecked) {
+                        return (
+                          <div className="mt-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompletionModalHabit(habit);
+                                setCompletionModalDate(currentDate);
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs text-[#9C978F] hover:text-[#E9CC8B] transition-colors cursor-pointer py-1"
+                            >
+                              <svg className="w-3.5 h-3.5 text-[#C6A15B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                              </svg>
+                              <span>Add a reflection on today's practice...</span>
+                            </button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {/* Below card hint: "X more today", tappable to expand back to List view */}
@@ -679,6 +744,57 @@ export const HomeScreen: React.FC = () => {
                               {categoryInfo.label}
                             </span>
                           </div>
+
+                          {/* Daily Reflection Note snippet for today */}
+                          {(() => {
+                            const todayNote = reflections[habit.id]?.[currentDate];
+                            if (todayNote) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCompletionModalHabit(habit);
+                                    setCompletionModalDate(currentDate);
+                                  }}
+                                  className="mt-1 flex items-center gap-1.5 text-left text-xs text-[#E9CC8B] hover:text-[#F3F0E9] transition-colors cursor-pointer group"
+                                  title="Edit today's reflection note"
+                                >
+                                  <svg className="w-3 h-3 text-[#C6A15B] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                  </svg>
+                                  <span className="truncate max-w-[170px] sm:max-w-[240px] italic font-light text-[11px] text-[#F3F0E9]/90">
+                                    “{todayNote}”
+                                  </span>
+                                  <span className="text-[10px] text-[#9C978F] group-hover:underline ml-0.5 shrink-0">
+                                    Edit
+                                  </span>
+                                </button>
+                              );
+                            }
+                            if (isChecked) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCompletionModalHabit(habit);
+                                    setCompletionModalDate(currentDate);
+                                  }}
+                                  className="mt-1 text-[10px] text-[#9C978F]/60 hover:text-[#E9CC8B] transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="Add reflection note for today"
+                                >
+                                  <svg className="w-2.5 h-2.5 text-[#C6A15B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                  </svg>
+                                  <span>Add note</span>
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
 
@@ -744,6 +860,33 @@ export const HomeScreen: React.FC = () => {
 
       {/* Bottom Navigation */}
       <BottomNav activeScreen="home" />
+
+      {/* Optional Completion Note Modal */}
+      <CompletionNoteModal
+        isOpen={Boolean(completionModalHabit)}
+        onClose={() => setCompletionModalHabit(null)}
+        habit={completionModalHabit}
+        dateStr={completionModalDate}
+        initialNote={
+          completionModalHabit
+            ? (reflections[completionModalHabit.id]?.[completionModalDate] || '')
+            : ''
+        }
+        onSave={(note) => {
+          if (completionModalHabit) {
+            if (note) {
+              saveReflection(completionModalHabit.id, completionModalDate, note);
+            } else {
+              deleteReflection(completionModalHabit.id, completionModalDate);
+            }
+          }
+        }}
+        onDelete={() => {
+          if (completionModalHabit) {
+            deleteReflection(completionModalHabit.id, completionModalDate);
+          }
+        }}
+      />
     </div>
   );
 };

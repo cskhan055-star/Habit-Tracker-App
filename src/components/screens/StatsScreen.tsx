@@ -16,7 +16,7 @@ export const StatsScreen: React.FC = () => {
     overallStreak,
     setScreen,
     setSelectedHabitId,
-    isPremium,
+    entitlement,
     t,
   } = useHabit();
 
@@ -62,7 +62,7 @@ export const StatsScreen: React.FC = () => {
           <button
             onClick={() => setScreen('paywall')}
             className={`w-9 h-9 rounded-full border border-[#26282C] flex items-center justify-center transition-colors cursor-pointer ${
-              isPremium
+              entitlement.isGold
                 ? 'bg-gold-gradient text-[#0A0B0D] border-transparent'
                 : 'bg-[#15171B] text-[#E9CC8B] hover:border-[#E9CC8B]/40'
             }`}
@@ -242,7 +242,7 @@ export const StatsScreen: React.FC = () => {
         </section>
 
         {/* Soft, non-blocking upsell prompt */}
-        {!isPremium && (
+        {!entitlement.isGold && (
           <div className="rounded-2xl bg-gradient-to-r from-[#15171B] to-[#1C1F24] border border-[#26282C] p-4 flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-[#0A0B0D] border border-[#26282C] flex items-center justify-center text-[#E9CC8B]">

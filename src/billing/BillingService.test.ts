@@ -56,16 +56,18 @@ export function runBillingTests(): { name: string; passed: boolean; message?: st
     assert(lifetime.type === 'inapp' && lifetime.price === '$9.99', 'Lifetime product is non-consumable at $9.99');
   }
 
-  // Test 4: BillingService purchase lifecycle
+  // Test 4: BillingService purchase lifecycle in sandbox
   {
-    let receivedStatus: string | null = null;
+    let receivedStatuses: string[] = [];
     const unsubscribe = billingService.listenToPurchaseUpdates((purchase) => {
-      receivedStatus = purchase.status;
+      receivedStatuses.push(purchase.status);
     });
 
     const yearly = MOCK_PLAY_STORE_PRODUCTS[AURUM_GOLD_PRODUCT_IDS.YEARLY];
     billingService.buy(yearly).then(() => {
-      assert(receivedStatus === 'purchased', 'BillingService buy() resolves to purchased status');
+      assert(receivedStatuses.includes('pending'), 'BillingService buy() emits pending status first');
+      assert(receivedStatuses.includes('error'), 'BillingService buy() refuses to fake purchase in browser sandbox');
+      assert(!receivedStatuses.includes('purchased'), 'BillingService never unlocks isGold optimistically in browser sandbox');
       unsubscribe();
     });
   }
